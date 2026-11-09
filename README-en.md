@@ -39,4 +39,11 @@ closing on outside clicks / Win / Alt+Tab, and never takes focus. See `examples/
 ```
 
 Produces `bin/x64/LiquidGlass.dll` with a static CRT, depending only on user32, gdi32, gdiplus and dwmapi.
-An MSVC CMake setup follows in stage 5.
+MSVC (preferred for releases; needs a Windows 10/11 SDK):
+
+```bat
+cmake -S native -B build\msvc -A x64
+cmake --build build\msvc --config Release
+```
+
+Static CRT, `/guard:cf`, full version resource, no packing.

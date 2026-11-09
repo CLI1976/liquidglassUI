@@ -46,9 +46,17 @@ Linux 交叉編譯（需 `g++-mingw-w64-x86-64-posix`）或 Windows 上的 MSYS2
 
 輸出 `bin/x64/LiquidGlass.dll`，靜態連結 CRT，只依賴 user32、gdi32、gdiplus、dwmapi。
 
-### MSVC
+### MSVC（發布用，優先）
 
-第 5 階段補上 CMake 設定。
+需要 Visual Studio 的「使用 C++ 的桌面開發」工作負載，**含 Windows 10/11 SDK**：
+
+```bat
+cmake -S native -B build\msvc -A x64
+cmake --build build\msvc --config Release
+```
+
+同樣輸出到 `bind\LiquidGlass.dll`，靜態連結 CRT（`/MT`），開啟 `/guard:cf`、`/DYNAMICBASE`、`/NXCOMPAT`，
+並嵌入完整的版本資訊資源；不加殼、不壓縮。發布前建議丟 VirusTotal 檢查。
 
 ## 使用
 
@@ -111,10 +119,17 @@ m.SetIcon("小算盤", A_WinDir "\System32\calc.exe", 1)
 - 選項：`light`、`style`、`transparency`、`accent`、`iconSize`、`rowHeight`、`fontSize`、`font`、`minWidth`、`maxWidth`、
   `radius`、`anim`（slide / zoom）、`showMs`（850）、`invokeMs`、`cancelMs`、`subDelay`、`textColor`。
 
+## DPI
+
+- AutoHotkey v2 是「系統 DPI 感知」，`A_ScreenDPI` 即主螢幕倍率；選單尺寸與玻璃效果（邊緣、陰影）都依此放大，
+  單螢幕 100%–200% 外觀一致。
+- 多螢幕且倍率不同時，Windows 會把整個視窗點陣縮放到另一台螢幕（大小正確、略糊）。
+- `GlassMenu({scale: 1.5})` / `LiquidGlass(..., {scale: 1.5})` 可強制倍率，方便在 100% 螢幕上預覽 150% 的版面。
+
 ## 進度
 
 - [x] 第 1 階段：dll 骨架（Create / Capture / Present / Destroy、深淺色、Acrylic）
 - [x] 第 2 階段：內容層（文字、圖示、圖片、色塊、分隔線）
 - [x] 第 3 階段：動畫與重截（`WDA_EXCLUDEFROMCAPTURE`）
 - [x] 第 4 階段：GlassMenu
-- [ ] 第 5 階段：MSVC、發布準備
+- [x] 第 5 階段：MSVC CMake 設定、DPI 倍率、發布準備（Quickmenu 個人移植版不在 repo 內）

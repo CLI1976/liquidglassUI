@@ -113,6 +113,8 @@ class LiquidGlass {
             this.Gui := ""
             throw Error("LG_Create 失敗：" err)
         }
+        if (sc := LiquidGlass._Opt(opts, "scale", "")) != ""
+            this.SetScale(sc)
         if (r := LiquidGlass._Opt(opts, "radius", "")) != ""
             this.SetRadius(r)
         if this.Tint != ""
@@ -139,6 +141,12 @@ class LiquidGlass {
     Margin => DllCall(LiquidGlass._Proc("LG_Margin"), "Ptr", this.Ptr, "Int")
     ; DPI scale the dll uses for its effect constants (1.0 = 96 dpi).
     Scale => DllCall(LiquidGlass._Proc("LG_Scale"), "Ptr", this.Ptr, "Float")
+
+    ; Overrides the DPI scale of the effects / shadow margin (default: the window's DPI / 96).
+    SetScale(scale) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetScale"), "Ptr", this.Ptr, "Float", scale + 0.0, "Int"), "LG_SetScale")
+        this._capX := this._capY := ""
+    }
 
     ; Corner radius in physical px; "" or < 0 = style default.
     SetRadius(radius) {

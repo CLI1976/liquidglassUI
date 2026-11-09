@@ -154,9 +154,15 @@ Bitmap* CachedIcon(const wchar_t* path, int index, int size) {
     if (it != g_iconCache.end()) return it->second.get();
 
     int nIndex = index > 0 ? index - 1 : (index == 0 ? 0 : index);
+    // Bare names such as "imageres.dll" are looked up on the system path, like Menu.SetIcon does.
+    wchar_t found[MAX_PATH];
+    const wchar_t* use = path;
+    if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES &&
+        SearchPathW(nullptr, path, nullptr, MAX_PATH, found, nullptr) > 0)
+        use = found;
     HICON icon = nullptr;
     UINT id = 0;
-    UINT got = PrivateExtractIconsW(path, nIndex, size, size, &icon, &id, 1, LR_DEFAULTCOLOR);
+    UINT got = PrivateExtractIconsW(use, nIndex, size, size, &icon, &id, 1, LR_DEFAULTCOLOR);
     if (got == 0 || got == 0xFFFFFFFF || !icon) {
         SetError(L"LG_IconFile：無法從「%ls」取得第 %d 個圖示", path, index);
         return nullptr;

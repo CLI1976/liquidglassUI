@@ -559,6 +559,25 @@ float LG_Scale(void* h) {
     });
 }
 
+// Overrides the DPI scale used for the shadow margin and effect sizes (1.0 = 96 dpi).
+// The window size changes with the margin; capture again afterwards.
+int LG_SetScale(void* h, float scale) {
+    return Guard(L"LG_SetScale", 0, [&] {
+        Context* c = Get(h, L"LG_SetScale");
+        if (!c) return 0;
+        if (!(scale >= 0.5f && scale <= 4.0f)) {
+            SetError(L"LG_SetScale：倍率 %.2f 超出範圍（0.5 – 4）", static_cast<double>(scale));
+            return 0;
+        }
+        if (scale == c->scale) return 1;
+        c->scale = scale;
+        c->glass.SetScale(scale);
+        Layout(*c);
+        c->captured = false;
+        return 1;
+    });
+}
+
 // kind 0 = round rect (p1 = corner radius in px, < 0 = style default). 1 - 3 reserved.
 int LG_SetShape(void* h, int kind, float p1, float p2, float p3, float p4) {
     return Guard(L"LG_SetShape", 0, [&] {

@@ -4,6 +4,7 @@ EXPORTS
     LG_Destroy
     LG_Margin
     LG_Scale
+    LG_SetScale
     LG_SetShape
     LG_SetLight
     LG_SetStyle

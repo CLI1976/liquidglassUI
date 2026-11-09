@@ -20,6 +20,7 @@
 ;   iconSize 32   rowHeight 44   fontSize 15   font ""   minWidth 180   maxWidth 520   radius 16
 ;   anim "slide" | "zoom" | ""      showMs 850   invokeMs 200 (fade before a callback)   cancelMs 800
 ;   subDelay 250 (hover time before a submenu opens / closes)
+;   scale (A_ScreenDPI / 96)        override the DPI scale, e.g. to preview 125 % / 150 %
 #Requires AutoHotkey v2.0 64-bit
 #Include %A_LineFile%\..\LiquidGlass.ahk
 
@@ -76,6 +77,9 @@ class GlassMenu {
     }
 
     _O(name, default) => (IsObject(this.Opts) && this.Opts.HasProp(name)) ? this.Opts.%name% : default
+
+    ; AutoHotkey v2 is system-DPI aware, so A_ScreenDPI applies to every monitor.
+    _Scale() => this._O("scale", A_ScreenDPI / 96)
 
     __Delete() {
         if IsObject(this._lg) {
@@ -210,7 +214,7 @@ class GlassMenu {
 
     ; ---------------------------------------------------------------- layout and drawing
     _Layout() {
-        s := A_ScreenDPI / 96
+        s := this._Scale()
         R(v) => Round(v * s)
         L := {}
         L.pad := R(6), L.rowH := R(this._O("rowHeight", 44)), L.sepH := R(11)
@@ -257,10 +261,14 @@ class GlassMenu {
                 style: this._O("style", "liquid"),
                 transparency: this._O("transparency", 60),
                 tint: accent = "" ? "" : accent & 0xFFFFFF,
+                scale: this._Scale(),
                 radius: L.radius})
             GlassMenu._byHwnd[this._lg.Hwnd] := this
-        } else if this._lg.PanelW != L.w || this._lg.PanelH != L.h {
-            this._lg.Resize(L.w, L.h)
+        } else {
+            if Abs(this._lg.Scale - this._Scale()) > 0.001
+                this._lg.SetScale(this._Scale())
+            if this._lg.PanelW != L.w || this._lg.PanelH != L.h
+                this._lg.Resize(L.w, L.h)
         }
         this._dirty := false
     }
@@ -341,7 +349,7 @@ class GlassMenu {
     _OpenAsChild(parent, idx) {
         this._EnsurePanel()
         it := parent._items[idx]
-        gap := Round(4 * A_ScreenDPI / 96)
+        gap := Round(4 * this._Scale())
         GlassMenu._WorkArea(parent.X + parent.W // 2, parent.Y + it.y, &l, &t, &r, &b)
         x := parent.X + parent.W + gap
         if x + this.W > r                          ; right edge: open on the left of the parent
