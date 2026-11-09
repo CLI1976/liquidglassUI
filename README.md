@@ -38,7 +38,7 @@ bin/x64/    編譯出的 LiquidGlass.dll
 
 ### MinGW-w64（目前）
 
-Linux 交叉編譯（需 `g++-mingw-w64-x86-64-posix`）或 Windows 上的 MSYS2 / w64devkit：
+Linux 交叉編譯（需 `g++-mingw-w64-x86-64-posix`）或 Windows 上的 MSYS2 / [w64devkit](https://github.com/skeeto/w64devkit)（已用 w64devkit 2.11.0、GCC 16.2 驗證）。Windows 上把 w64devkit 的 `bin` 加到 PATH 後執行：
 
 ```sh
 ./build-mingw.sh
