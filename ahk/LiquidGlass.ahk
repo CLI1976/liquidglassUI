@@ -5,9 +5,9 @@
 ; panel's top-left corner (the shadow margin is handled by the dll).
 ;
 ;   lg := LiquidGlass(300, 200, {radius: 22, light: "auto", style: "liquid", transparency: 60})
-;   lg.Show(x, y, "slide", 180)  ; capture background at (x, y), slide in
+;   lg.Show(x, y, "slide", 300)  ; capture background at (x, y), slide in
 ;   lg.Update()          ; re-compose without recapturing
-;   lg.Hide("fade", 120)
+;   lg.Hide("fade", 250)
 #Requires AutoHotkey v2.0 64-bit
 
 class LiquidGlass {
@@ -192,7 +192,7 @@ class LiquidGlass {
     ; Shows the panel with its top-left at (x, y). Captures first when the position changed.
     ; anim: "" (none), "slide" (slide in + fade in), "zoom" (grow from center). Blocking.
     ; Returns the number of frames drawn.
-    Show(x, y, anim := "", ms := 180) {
+    Show(x, y, anim := "", ms := 300) {
         if (x != this._capX || y != this._capY)
             this.Capture(x, y)
         this.X := x
@@ -216,7 +216,7 @@ class LiquidGlass {
     }
 
     ; anim: "" (immediately) or "fade". Blocking.
-    Hide(anim := "", ms := 120) {
+    Hide(anim := "", ms := 250) {
         if !IsObject(this.Gui)
             return
         switch anim, false {

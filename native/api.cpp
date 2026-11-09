@@ -358,7 +358,7 @@ int AnimateFadeOut(Context& c, int ms) {
     int frames = 0;
     for (;;) {
         double t = std::min(1.0, (NowMs() - start) / ms);
-        c.alpha = static_cast<BYTE>(std::lround(from * (1 - t) * (1 - t * 0.3)));
+        c.alpha = static_cast<BYTE>(std::lround(from * (1 - t * t)));  // ease-in: lingers, then goes
         if (!PushAlphaOnly(c)) break;
         ++frames;
         if (t >= 1) break;

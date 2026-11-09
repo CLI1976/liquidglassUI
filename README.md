@@ -77,9 +77,9 @@ lg.Show(x, y)
 
 ```ahk
 lg.Capture(x, y), DrawContent()
-lg.Show(x, y, "slide", 180)        ; 滑入 + 淡入；"zoom" = 從中心縮放
+lg.Show(x, y, "slide", 300)        ; 滑入 + 淡入；"zoom" = 從中心縮放
 lg.Capture(lg.X, lg.Y)             ; 顯示中重截：用 WDA_EXCLUDEFROMCAPTURE 排除自己，舊版 Windows 退回先隱藏再截
-lg.Hide("fade", 120)               ; 淡出後隱藏
+lg.Hide("fade", 250)               ; 淡出後隱藏
 ```
 
 `Text` 選項：`font`（預設 Microsoft JhengHei UI）、`size`、`bold`、`align`（left / center / right）、
