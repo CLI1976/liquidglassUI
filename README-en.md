@@ -95,6 +95,11 @@ cmake --build build\msvc --config Release
 
 Static CRT, `/guard:cf`, full version resource, no packing.
 
+## Contributors
+
+- [CLI1976](https://github.com/CLI1976): author, specification, testing
+- [Claude](https://claude.com/claude-code) (Anthropic): co-implemented the native dll, the AHK wrappers and the examples via Claude Code
+
 ## Origin and license
 
 - The glass material algorithm is **adapted from `src/glass.cpp` of [DM74164/TaskbarPopup](https://github.com/DM74164/TaskbarPopup)**,

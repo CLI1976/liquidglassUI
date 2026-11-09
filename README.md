@@ -135,6 +135,11 @@ examples/   通用範例
 bin/x64/    編譯好的 LiquidGlass.dll
 ```
 
+## 貢獻者
+
+- [CLI1976](https://github.com/CLI1976)：專案作者、需求規格、測試
+- [Claude](https://claude.com/claude-code)（Anthropic）：以 Claude Code 協作實作 native dll、AHK 包裝類與範例
+
 ## 來源與授權
 
 - 玻璃材質演算法**改自 [DM74164/TaskbarPopup](https://github.com/DM74164/TaskbarPopup) 的 `src/glass.cpp`**，
