@@ -67,6 +67,7 @@ struct Context {
 
     POINT pos = {};  // current window top-left on screen
     BYTE alpha = 255;
+    int excludeWorks = 0;  // WDA_EXCLUDEFROMCAPTURE: 0 = unknown, 1 = works, -1 = not supported
 };
 
 // Defined in api.cpp

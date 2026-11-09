@@ -73,6 +73,15 @@ lg.Text("開啟", 56, 8, 200, 40, {size: 15, valign: "center", color: "auto"})
 lg.Show(x, y)
 ```
 
+動畫（阻塞式，結束才返回；系統關閉動畫效果時直接顯示）：
+
+```ahk
+lg.Capture(x, y), DrawContent()
+lg.Show(x, y, "slide", 180)        ; 滑入 + 淡入；"zoom" = 從中心縮放
+lg.Capture(lg.X, lg.Y)             ; 顯示中重截：用 WDA_EXCLUDEFROMCAPTURE 排除自己，舊版 Windows 退回先隱藏再截
+lg.Hide("fade", 120)               ; 淡出後隱藏
+```
+
 `Text` 選項：`font`（預設 Microsoft JhengHei UI）、`size`、`bold`、`align`（left / center / right）、
 `valign`（top / center / bottom）、`ellipsis`（預設 true）、`wrap`（預設 false）、`color`（`"auto"` 依玻璃實際亮度選黑或白）。
 
@@ -82,6 +91,6 @@ lg.Show(x, y)
 
 - [x] 第 1 階段：dll 骨架（Create / Capture / Present / Destroy、深淺色、Acrylic）
 - [x] 第 2 階段：內容層（文字、圖示、圖片、色塊、分隔線）
-- [ ] 第 3 階段：動畫與重截（`WDA_EXCLUDEFROMCAPTURE`）
+- [x] 第 3 階段：動畫與重截（`WDA_EXCLUDEFROMCAPTURE`）
 - [ ] 第 4 階段：GlassMenu
 - [ ] 第 5 階段：MSVC、發布準備

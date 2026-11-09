@@ -5,9 +5,9 @@
 ; panel's top-left corner (the shadow margin is handled by the dll).
 ;
 ;   lg := LiquidGlass(300, 200, {radius: 22, light: "auto", style: "liquid", transparency: 60})
-;   lg.Show(x, y)        ; capture background at (x, y) and present
+;   lg.Show(x, y, "slide", 180)  ; capture background at (x, y), slide in
 ;   lg.Update()          ; re-compose without recapturing
-;   lg.Hide()
+;   lg.Hide("fade", 120)
 #Requires AutoHotkey v2.0 64-bit
 
 class LiquidGlass {
@@ -190,23 +190,41 @@ class LiquidGlass {
     }
 
     ; Shows the panel with its top-left at (x, y). Captures first when the position changed.
-    ; anim / ms are accepted for forward compatibility; animations arrive in stage 3.
-    Show(x, y, anim := "", ms := 0) {
+    ; anim: "" (none), "slide" (slide in + fade in), "zoom" (grow from center). Blocking.
+    ; Returns the number of frames drawn.
+    Show(x, y, anim := "", ms := 180) {
         if (x != this._capX || y != this._capY)
             this.Capture(x, y)
-        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Present"), "Ptr", this.Ptr, "Int", x, "Int", y, "Int"), "LG_Present")
         this.X := x
         this.Y := y
+        switch anim, false {
+            case "", "none":
+                return LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Present"), "Ptr", this.Ptr, "Int", x, "Int", y, "Int"), "LG_Present")
+            case "slide": kind := 1
+            case "zoom", "scale": kind := 3
+            default: throw ValueError("未知的動畫：" anim "（可用 slide / zoom）", -1)
+        }
+        return LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Animate"), "Ptr", this.Ptr, "Int", kind, "Int", ms, "Int"), "LG_Animate")
     }
+
+    ; True while the panel window is on screen.
+    Visible => IsObject(this.Gui) && DllCall("IsWindowVisible", "Ptr", this.Hwnd, "Int")
 
     ; Re-composes glass + content at the current position (after style / content changes).
     Update() {
         LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Update"), "Ptr", this.Ptr, "Int"), "LG_Update")
     }
 
-    Hide(anim := "", ms := 0) {
-        if IsObject(this.Gui)
-            this.Gui.Hide()
+    ; anim: "" (immediately) or "fade". Blocking.
+    Hide(anim := "", ms := 120) {
+        if !IsObject(this.Gui)
+            return
+        switch anim, false {
+            case "", "none": this.Gui.Hide()
+            case "fade":
+                LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Animate"), "Ptr", this.Ptr, "Int", 2, "Int", ms, "Int"), "LG_Animate")
+            default: throw ValueError("未知的動畫：" anim "（可用 fade）", -1)
+        }
     }
 
     ; ---------------------------------------------------------------- content layer

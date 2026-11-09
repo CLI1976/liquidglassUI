@@ -1,7 +1,7 @@
 // LiquidGlass version
 #pragma once
 #define LG_VERSION_MAJOR 0
-#define LG_VERSION_MINOR 2
+#define LG_VERSION_MINOR 3
 #define LG_VERSION_PATCH 0
 #define LG_STR2(x) #x
 #define LG_STR(x) LG_STR2(x)

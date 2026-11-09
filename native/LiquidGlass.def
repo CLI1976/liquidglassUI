@@ -12,6 +12,7 @@ EXPORTS
     LG_Resize
     LG_Capture
     LG_Present
+    LG_Animate
     LG_Update
     LG_BaseLuma
     LG_Clear

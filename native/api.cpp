@@ -196,20 +196,249 @@ void ShowNoActivate(HWND hwnd) {
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
+// ---------------------------------------------------------------- capture while shown
+#ifndef WDA_EXCLUDEFROMCAPTURE
+#define WDA_EXCLUDEFROMCAPTURE 0x00000011
+#endif
+
+DWORD WindowsBuild() {
+    using Fn = LONG(WINAPI*)(OSVERSIONINFOW*);
+    static DWORD build = [] {
+        HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+        void* p = ntdll ? reinterpret_cast<void*>(GetProcAddress(ntdll, "RtlGetVersion")) : nullptr;
+        OSVERSIONINFOW vi = {sizeof(vi)};
+        return p && reinterpret_cast<Fn>(p)(&vi) == 0 ? vi.dwBuildNumber : 0UL;
+    }();
+    return build;
+}
+
+// Turns on "exclude from capture" (Win10 2004+). Before 19041 the call succeeds but acts as
+// WDA_MONITOR (captured as black), so it is rejected by build number.
+bool ExcludeOn(Context& c) {
+    if (c.excludeWorks < 0) return false;
+    if (DWORD build = WindowsBuild(); build && build < 19041) {
+        c.excludeWorks = -1;
+        return false;
+    }
+    if (!SetWindowDisplayAffinity(c.hwnd, WDA_EXCLUDEFROMCAPTURE)) {
+        c.excludeWorks = -1;
+        return false;
+    }
+    DwmFlush();  // exclusion takes effect after the compositor has run
+    DwmFlush();
+    return true;
+}
+
+// First time only: if a small block at the panel center captures exactly what we drew,
+// exclusion is not working on this system.
+bool ExcludeVerified(Context& c) {
+    if (c.excludeWorks) return c.excludeWorks > 0;
+    if (!c.bits || c.alpha != 255) return true;  // cannot tell yet
+    int size = std::max(8, static_cast<int>(24 * c.scale));
+    int x0 = c.margin + c.panelW / 2 - size / 2, y0 = c.margin + c.panelH / 2 - size / 2;
+    if (x0 < 0 || y0 < 0 || x0 + size > c.dibW || y0 + size > c.dibH) return true;
+    RECT r = {c.pos.x + x0, c.pos.y + y0, c.pos.x + x0 + size, c.pos.y + y0 + size};
+    std::vector<DWORD> shot;
+    if (!CaptureScreen(r, shot)) return true;
+    int same = 0;
+    for (int y = 0; y < size; ++y)
+        for (int x = 0; x < size; ++x)
+            if ((shot[static_cast<size_t>(y) * size + x] & 0xFFFFFF) ==
+                (c.bits[static_cast<size_t>(y0 + y) * c.dibW + x0 + x] & 0xFFFFFF))
+                ++same;
+    c.excludeWorks = same * 10 >= size * size * 9 ? -1 : 1;
+    return c.excludeWorks > 0;
+}
+
+bool Present(Context& c, int panelX, int panelY);
+
+// Captures the background behind the panel's future position. When the panel is on screen,
+// it is excluded from the capture (WDA_EXCLUDEFROMCAPTURE, only during the capture so normal
+// screenshots still include it); on older systems it is hidden for a moment instead.
 bool CaptureAt(Context& c, int panelX, int panelY) {
     POINT wp = {panelX - c.margin, panelY - c.margin};
     RECT window = {wp.x, wp.y, wp.x + c.winW, wp.y + c.winH};
-    // v1: if the panel is on screen, hide it first so it is not captured.
-    // (Stage 3 replaces this with WDA_EXCLUDEFROMCAPTURE.)
-    if (IsWindowVisible(c.hwnd)) {
-        ShowWindow(c.hwnd, SW_HIDE);
-        DwmFlush();
+    const bool visible = IsWindowVisible(c.hwnd) != FALSE;
+    bool done = false;
+    if (visible && ExcludeOn(c)) {
+        // the overlap check needs the window where we last drew it
+        bool overlap = c.pos.x == wp.x && c.pos.y == wp.y;
+        if (!overlap || ExcludeVerified(c)) {
+            c.glass.Capture(window, c.scale);
+            done = true;
+        }
+        SetWindowDisplayAffinity(c.hwnd, WDA_NONE);
     }
-    c.glass.Capture(window, c.scale);
+    bool hidden = false;
+    if (!done) {
+        if (visible) {
+            ShowWindow(c.hwnd, SW_HIDE);
+            DwmFlush();
+            hidden = true;
+        }
+        c.glass.Capture(window, c.scale);
+    }
     c.captured = true;
     c.capturePos = wp;
     c.baseValid = false;
+    // Still on screen at the same place: show the new background right away.
+    if (visible && c.pos.x == wp.x && c.pos.y == wp.y && c.alpha == 255) return Present(c, panelX, panelY);
+    if (hidden) ShowNoActivate(c.hwnd);
     return true;
+}
+
+// ---------------------------------------------------------------- animation
+double NowMs() {
+    static LARGE_INTEGER freq = [] {
+        LARGE_INTEGER f;
+        QueryPerformanceFrequency(&f);
+        return f;
+    }();
+    LARGE_INTEGER t;
+    QueryPerformanceCounter(&t);
+    return static_cast<double>(t.QuadPart) * 1000.0 / static_cast<double>(freq.QuadPart);
+}
+
+bool AnimationsEnabled() {
+    BOOL on = TRUE;
+    if (!SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &on, 0)) return true;
+    return on != FALSE;
+}
+
+// Overshoots a little and settles back, like a liquid (same curve as the original popup).
+double EaseOutBack(double t) {
+    const double c1 = 1.1, c3 = c1 + 1;
+    double u = t - 1;
+    return 1 + c3 * u * u * u + c1 * u * u;
+}
+
+double EaseOutCubic(double t) {
+    double u = 1 - t;
+    return 1 - u * u * u;
+}
+
+bool PushAlphaOnly(Context& c) {
+    BLENDFUNCTION blend = {AC_SRC_OVER, 0, c.alpha, AC_SRC_ALPHA};
+    return UpdateLayeredWindow(c.hwnd, nullptr, nullptr, nullptr, nullptr, nullptr, 0, &blend, ULW_ALPHA) != FALSE;
+}
+
+// kind 1: slide down into place + fade in. The glass material and content move together;
+// the background is sampled at fixed screen coordinates, so it stays put.
+int AnimateSlideIn(Context& c, int ms) {
+    const float dist = 14 * c.scale;
+    const double start = NowMs();
+    int frames = 0;
+    bool shown = false;
+    for (;;) {
+        double t = std::min(1.0, (NowMs() - start) / ms);
+        int dy = static_cast<int>(std::lround(-(1 - EaseOutBack(t)) * dist));
+        c.alpha = static_cast<BYTE>(std::lround(255 * std::min(1.0, t * 2.5)));
+        Compose(c, 0, dy);
+        if (!Push(c)) return 0;
+        if (!shown) {
+            ShowNoActivate(c.hwnd);
+            shown = true;
+        }
+        ++frames;
+        if (t >= 1) break;
+        DwmFlush();  // one frame per compositor refresh
+    }
+    if (c.alpha != 255 || !c.baseValid) {  // make sure we end on the cached rest frame
+        c.alpha = 255;
+        Compose(c, 0, 0);
+        if (!Push(c)) return 0;
+    }
+    return frames;
+}
+
+// kind 2: fade out, then hide. The frame is composed once; only the window alpha changes.
+int AnimateFadeOut(Context& c, int ms) {
+    const BYTE from = c.alpha;
+    const double start = NowMs();
+    int frames = 0;
+    for (;;) {
+        double t = std::min(1.0, (NowMs() - start) / ms);
+        c.alpha = static_cast<BYTE>(std::lround(from * (1 - t) * (1 - t * 0.3)));
+        if (!PushAlphaOnly(c)) break;
+        ++frames;
+        if (t >= 1) break;
+        DwmFlush();
+    }
+    ShowWindow(c.hwnd, SW_HIDE);
+    c.alpha = 255;
+    return std::max(frames, 1);
+}
+
+// kind 3: grow from the panel center (0.92 -> 1) + fade in. The finished frame is scaled as a
+// whole, so the background inside zooms slightly during the ~150 ms; it ends exact.
+int AnimateZoomIn(Context& c, int ms) {
+    c.alpha = 255;
+    Compose(c, 0, 0);
+    const size_t count = static_cast<size_t>(c.winW) * c.winH;
+    std::vector<DWORD> rest(c.bits, c.bits + count);
+    Gdiplus::Bitmap src(c.winW, c.winH, c.winW * 4, PixelFormat32bppPARGB, reinterpret_cast<BYTE*>(rest.data()));
+    Gdiplus::Bitmap dst(c.winW, c.winH, c.winW * 4, PixelFormat32bppPARGB, reinterpret_cast<BYTE*>(c.bits));
+    Gdiplus::Graphics g(&dst);
+    g.SetInterpolationMode(Gdiplus::InterpolationModeBilinear);
+    g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+    g.SetCompositingMode(Gdiplus::CompositingModeSourceCopy);
+    const float cx = c.margin + c.panelW / 2.0f, cy = c.margin + c.panelH / 2.0f;
+    const double start = NowMs();
+    int frames = 0;
+    bool shown = false;
+    for (;;) {
+        double t = std::min(1.0, (NowMs() - start) / ms);
+        if (t >= 1) break;
+        float s = static_cast<float>(0.92 + 0.08 * EaseOutCubic(t));
+        std::fill(c.bits, c.bits + count, 0);
+        g.DrawImage(&src, Gdiplus::RectF(cx - cx * s, cy - cy * s, c.winW * s, c.winH * s));
+        c.alpha = static_cast<BYTE>(std::lround(255 * std::min(1.0, t * 2)));
+        if (!Push(c)) return 0;
+        if (!shown) {
+            ShowNoActivate(c.hwnd);
+            shown = true;
+        }
+        ++frames;
+        DwmFlush();
+    }
+    std::memcpy(c.bits, rest.data(), count * sizeof(DWORD));
+    c.alpha = 255;
+    if (!Push(c)) return 0;
+    ShowNoActivate(c.hwnd);
+    return frames + 1;
+}
+
+// Blocking; returns the number of frames drawn (0 = failure).
+int Animate(Context& c, int kind, int ms) {
+    if (kind < 1 || kind > 3) {
+        SetError(L"LG_Animate：未知的動畫種類 %d（1 = 滑入，2 = 淡出，3 = 縮放）", kind);
+        return 0;
+    }
+    ms = std::clamp(ms, 0, 5000);
+    const bool on = ms > 0 && AnimationsEnabled();
+    if (kind == 2) {
+        if (!IsWindowVisible(c.hwnd)) return 1;
+        if (!on) {
+            ShowWindow(c.hwnd, SW_HIDE);
+            c.alpha = 255;
+            return 1;
+        }
+        return AnimateFadeOut(c, ms);
+    }
+    if (!c.captured) {
+        SetError(L"LG_Animate：尚未截取背景，請先呼叫 LG_Capture");
+        return 0;
+    }
+    c.pos = c.capturePos;  // shows where the background was captured
+    if (!EnsureDib(c)) return 0;
+    if (!on) {
+        c.alpha = 255;
+        Compose(c, 0, 0);
+        if (!Push(c)) return 0;
+        ShowNoActivate(c.hwnd);
+        return 1;
+    }
+    return kind == 1 ? AnimateSlideIn(c, ms) : AnimateZoomIn(c, ms);
 }
 
 bool Present(Context& c, int panelX, int panelY) {
@@ -417,6 +646,15 @@ int LG_Present(void* h, int panelX, int panelY) {
         if (!c) return 0;
         c->alpha = 255;
         return Present(*c, panelX, panelY) ? 1 : 0;
+    });
+}
+
+// kind 1 = slide in + fade in, 2 = fade out (then hide), 3 = zoom from center.
+// 1 / 3 show the panel where LG_Capture was last called. Blocking; returns frames drawn.
+int LG_Animate(void* h, int kind, int ms) {
+    return Guard(L"LG_Animate", 0, [&] {
+        Context* c = Get(h, L"LG_Animate");
+        return c ? Animate(*c, kind, ms) : 0;
     });
 }
 
