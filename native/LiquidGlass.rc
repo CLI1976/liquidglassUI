@@ -1,0 +1,32 @@
+#include <windows.h>
+#include "version.h"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION LG_VERSION_MAJOR,LG_VERSION_MINOR,LG_VERSION_PATCH,0
+PRODUCTVERSION LG_VERSION_MAJOR,LG_VERSION_MINOR,LG_VERSION_PATCH,0
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+FILEFLAGS 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_DLL
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "LiquidGlass contributors"
+            VALUE "FileDescription", "LiquidGlass UI rendering library for AutoHotkey v2"
+            VALUE "FileVersion", LG_VERSION_STR
+            VALUE "InternalName", "LiquidGlass"
+            VALUE "LegalCopyright", "Copyright (C) 2026 LiquidGlass contributors; glass algorithm Copyright (C) 2026 DM74164. AGPL-3.0"
+            VALUE "OriginalFilename", "LiquidGlass.dll"
+            VALUE "ProductName", "LiquidGlass"
+            VALUE "ProductVersion", LG_VERSION_STR
+            VALUE "Comments", "Derived from https://github.com/DM74164/TaskbarPopup (src/glass.cpp)"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

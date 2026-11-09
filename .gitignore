@@ -1,0 +1,10 @@
+# personal ports and private scripts (not part of the library)
+/local/
+/Local/
+# read-only upstream reference clone
+/third_party/
+# build output
+/build/
+*.o
+*.res
+/LiquidGlass UI for AHK v2*.md

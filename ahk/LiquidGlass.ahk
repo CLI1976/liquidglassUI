@@ -1,0 +1,219 @@
+; LiquidGlass.ahk - low-level wrapper around LiquidGlass.dll (AutoHotkey v2, x64)
+; Copyright (C) 2026 LiquidGlass contributors. AGPL-3.0-or-later.
+;
+; All coordinates and sizes are physical pixels. Content coordinates are relative to the
+; panel's top-left corner (the shadow margin is handled by the dll).
+;
+;   lg := LiquidGlass(300, 200, {radius: 22, light: "auto", style: "liquid", transparency: 60})
+;   lg.Show(x, y)        ; capture background at (x, y) and present
+;   lg.Update()          ; re-compose without recapturing
+;   lg.Hide()
+#Requires AutoHotkey v2.0 64-bit
+
+class LiquidGlass {
+    ; Override before creating the first panel if the dll lives elsewhere.
+    static DllPath := A_LineFile "\..\..\bin\x64\LiquidGlass.dll"
+
+    static _hMod := 0
+    static _procs := Map()
+
+    ; ---------------------------------------------------------------- dll plumbing
+    static _Load() {
+        if this._hMod
+            return
+        if A_PtrSize != 8
+            throw Error("LiquidGlass 只支援 64-bit AutoHotkey（請用 AutoHotkey64.exe 執行）")
+        path := this.DllPath
+        if !FileExist(path)
+            throw Error("找不到 LiquidGlass.dll：" path "`n可用 LiquidGlass.DllPath 指定位置。")
+        h := DllCall("LoadLibraryW", "WStr", path, "Ptr")
+        if !h
+            throw OSError(A_LastError, -1, "無法載入 LiquidGlass.dll：" path)
+        this._hMod := h
+    }
+
+    static _Proc(name) {
+        if this._procs.Has(name)
+            return this._procs[name]
+        this._Load()
+        p := DllCall("GetProcAddress", "Ptr", this._hMod, "AStr", name, "Ptr")
+        if !p
+            throw Error("LiquidGlass.dll 缺少匯出函式 " name "（dll 與 LiquidGlass.ahk 版本不符？）")
+        this._procs[name] := p
+        return p
+    }
+
+    static LastError() => DllCall(this._Proc("LG_LastError"), "WStr")
+
+    static _Check(result, fn) {
+        if !result
+            throw Error(fn " 失敗：" LiquidGlass.LastError(), -2)
+        return result
+    }
+
+    ; ---------------------------------------------------------------- helpers
+    static _Opt(opts, name, default) => (IsObject(opts) && opts.HasProp(name)) ? opts.%name% : default
+
+    ; AppsUseLightTheme: 1 = light (Windows default when the value is missing)
+    static SystemIsLight() {
+        try return RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme") != 0
+        return true
+    }
+
+    static Luma(rgb) => 0.299 * ((rgb >> 16) & 0xFF) + 0.587 * ((rgb >> 8) & 0xFF) + 0.114 * (rgb & 0xFF)
+
+    ; light: true / false / "auto". With a custom tint, "auto" follows the tint's brightness.
+    static _ResolveLight(light, tint := "") {
+        if light = "auto"
+            return (tint != "") ? LiquidGlass.Luma(tint & 0xFFFFFF) >= 128 : LiquidGlass.SystemIsLight()
+        return !!light
+    }
+
+    static _StyleId(style) {
+        switch style, false {
+            case "liquid", 0: return 0
+            case "acrylic", "win11", 1: return 1
+        }
+        throw ValueError("未知的 style：" style "（可用 liquid / acrylic）", -2)
+    }
+
+    ; ---------------------------------------------------------------- instance
+    Ptr := 0
+    Gui := ""
+    Hwnd := 0
+    PanelW := 0
+    PanelH := 0
+    Light := false
+    Style := "liquid"
+    Tint := ""
+    _lightOpt := "auto"
+    _capX := ""
+    _capY := ""
+    X := ""
+    Y := ""
+
+    __New(panelW, panelH, opts := {}) {
+        this.PanelW := panelW
+        this.PanelH := panelH
+        this.Style := LiquidGlass._Opt(opts, "style", "liquid")
+        this.Tint := LiquidGlass._Opt(opts, "tint", "")
+        this._lightOpt := LiquidGlass._Opt(opts, "light", "auto")
+        this.Light := LiquidGlass._ResolveLight(this._lightOpt, this.Tint)
+
+        ; Layered (WS_EX_LAYERED 0x80000), never takes focus (WS_EX_NOACTIVATE 0x08000000).
+        ; The dll shows the window itself (SWP_SHOWWINDOW | SWP_NOACTIVATE); do not call Gui.Show().
+        this.Gui := Gui("-Caption +ToolWindow +AlwaysOnTop +E0x80000 +E0x08000000")
+        this.Hwnd := this.Gui.Hwnd
+
+        flags := (this.Light ? 1 : 0) | (LiquidGlass._StyleId(this.Style) ? 2 : 0)
+        this.Ptr := DllCall(LiquidGlass._Proc("LG_Create"), "Ptr", this.Hwnd, "Int", panelW, "Int", panelH, "Int", flags, "Ptr")
+        if !this.Ptr {
+            err := LiquidGlass.LastError()
+            this.Gui.Destroy()
+            this.Gui := ""
+            throw Error("LG_Create 失敗：" err)
+        }
+        if (r := LiquidGlass._Opt(opts, "radius", "")) != ""
+            this.SetRadius(r)
+        if this.Tint != ""
+            this.SetTint(this.Tint)
+        if (t := LiquidGlass._Opt(opts, "transparency", "")) != ""
+            this.SetTransparency(t)
+    }
+
+    __Delete() => this.Destroy()
+
+    Destroy() {
+        if this.Ptr {
+            try DllCall(LiquidGlass._Proc("LG_Destroy"), "Ptr", this.Ptr, "Int")
+            this.Ptr := 0
+        }
+        if IsObject(this.Gui) {
+            try this.Gui.Destroy()
+            this.Gui := ""
+        }
+    }
+
+    ; Shadow margin around the panel (physical px); window = panel + 2 * Margin.
+    Margin => DllCall(LiquidGlass._Proc("LG_Margin"), "Ptr", this.Ptr, "Int")
+    ; DPI scale the dll uses for its effect constants (1.0 = 96 dpi).
+    Scale => DllCall(LiquidGlass._Proc("LG_Scale"), "Ptr", this.Ptr, "Float")
+
+    ; Corner radius in physical px; "" or < 0 = style default.
+    SetRadius(radius) {
+        r := (radius = "") ? -1.0 : radius + 0.0
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetShape"), "Ptr", this.Ptr, "Int", 0
+            , "Float", r, "Float", 0.0, "Float", 0.0, "Float", 0.0, "Int"), "LG_SetShape")
+    }
+
+    ; light: true / false / "auto"
+    SetLight(light) {
+        this._lightOpt := light
+        this.Light := LiquidGlass._ResolveLight(light, this.Tint)
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetLight"), "Ptr", this.Ptr, "Int", this.Light, "Int"), "LG_SetLight")
+    }
+
+    ; style: "liquid" / "acrylic"
+    SetStyle(style) {
+        id := LiquidGlass._StyleId(style)
+        this.Style := style
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetStyle"), "Ptr", this.Ptr, "Int", id, "Int"), "LG_SetStyle")
+    }
+
+    ; rgb: 0xRRGGBB, or "" for the default tint. Re-evaluates light when it is "auto".
+    SetTint(rgb := "") {
+        this.Tint := rgb
+        custom := rgb != ""
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetTint"), "Ptr", this.Ptr, "Int", custom
+            , "UInt", custom ? rgb & 0xFFFFFF : 0, "Int"), "LG_SetTint")
+        if this._lightOpt = "auto"
+            this.SetLight("auto")
+    }
+
+    ; 0 - 100, default 60 (liquid style only)
+    SetTransparency(pct) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetTransparency"), "Ptr", this.Ptr, "Int", Integer(pct), "Int"), "LG_SetTransparency")
+    }
+
+    Resize(panelW, panelH) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Resize"), "Ptr", this.Ptr, "Int", panelW, "Int", panelH, "Int"), "LG_Resize")
+        this.PanelW := panelW
+        this.PanelH := panelH
+        this._capX := this._capY := ""
+    }
+
+    ; Captures the background where the panel's top-left will be (screen px).
+    Capture(x, y) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Capture"), "Ptr", this.Ptr, "Int", x, "Int", y, "Int"), "LG_Capture")
+        this._capX := x
+        this._capY := y
+    }
+
+    ; Shows the panel with its top-left at (x, y). Captures first when the position changed.
+    ; anim / ms are accepted for forward compatibility; animations arrive in stage 3.
+    Show(x, y, anim := "", ms := 0) {
+        if (x != this._capX || y != this._capY)
+            this.Capture(x, y)
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Present"), "Ptr", this.Ptr, "Int", x, "Int", y, "Int"), "LG_Present")
+        this.X := x
+        this.Y := y
+    }
+
+    ; Re-composes glass + content at the current position (after style / content changes).
+    Update() {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Update"), "Ptr", this.Ptr, "Int"), "LG_Update")
+    }
+
+    Hide(anim := "", ms := 0) {
+        if IsObject(this.Gui)
+            this.Gui.Hide()
+    }
+
+    ; Average brightness (0 - 255) of the glass in a panel-relative rect.
+    BaseLuma(x, y, w, h) {
+        v := DllCall(LiquidGlass._Proc("LG_BaseLuma"), "Ptr", this.Ptr, "Int", x, "Int", y, "Int", w, "Int", h, "Float")
+        if v < 0
+            throw Error("LG_BaseLuma 失敗：" LiquidGlass.LastError())
+        return v
+    }
+}

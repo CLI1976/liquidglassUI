@@ -1,0 +1,17 @@
+LIBRARY LiquidGlass
+EXPORTS
+    LG_Create
+    LG_Destroy
+    LG_Margin
+    LG_Scale
+    LG_SetShape
+    LG_SetLight
+    LG_SetStyle
+    LG_SetTint
+    LG_SetTransparency
+    LG_Resize
+    LG_Capture
+    LG_Present
+    LG_Update
+    LG_BaseLuma
+    LG_LastError
