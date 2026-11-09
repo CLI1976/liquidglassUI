@@ -29,7 +29,7 @@
 
 ```
 native/     C++ 原始碼（glass、shape、api）、.def、版本資源
-ahk/        LiquidGlass.ahk（低階包裝類）
+ahk/        LiquidGlass.ahk（低階包裝類）、GlassMenu.ahk（玻璃選單）
 examples/   通用範例
 bin/x64/    編譯出的 LiquidGlass.dll
 ```
@@ -87,10 +87,34 @@ lg.Hide("fade", 800)               ; 淡出後隱藏
 
 座標與尺寸一律是實體像素。dll 預設路徑為 `ahk\..\bin\x64\LiquidGlass.dll`，可用 `LiquidGlass.DllPath` 覆寫。
 
+## GlassMenu
+
+介面仿 AHK 內建 `Menu()`：`Add`、`SetIcon`、`Delete`、`Disable` / `Enable`、`Show(x?, y?)`、`Close()`，
+回呼參數同樣是 `(ItemName, ItemPos, MenuObj)`，項目可用名稱或 `"N&"` 位置指定，名稱裡的 `` `t `` 後面當成快捷鍵文字靠右顯示。
+
+```ahk
+#Include ahk\GlassMenu.ahk
+sub := GlassMenu({accent: 0xC6F0FD})
+sub.Add("記事本", (*) => Run("notepad.exe"))
+m := GlassMenu({light: "auto", iconSize: 32, accent: 0xFFC0F3A3})
+m.Add("應用程式", sub)       ; 子選單
+m.Add()                       ; 分隔線
+m.Add("小算盤", (name, pos, menu) => Run("calc.exe"))
+m.SetIcon("小算盤", A_WinDir "\System32\calc.exe", 1)
+<^RButton:: m.Show()          ; 預設在滑鼠位置
+```
+
+- 滑鼠停在子選單項目 `subDelay`（250 ms）後展開；左鍵放開才執行，先淡出（`invokeMs` 200 ms）再呼叫回呼。
+- 鍵盤：↑↓ 移動、→ / Enter 展開子選單、← 收回、Enter 執行、Esc 關閉一層；只在選單開著時攔截。
+- 點選單外、按 Win、切換前景視窗（Alt+Tab）都會關閉（`cancelMs` 800 ms 淡出）。
+- 彈出時不搶焦點；子選單在螢幕右緣自動開到左側，下緣超出就往上推。
+- 選項：`light`、`style`、`transparency`、`accent`、`iconSize`、`rowHeight`、`fontSize`、`font`、`minWidth`、`maxWidth`、
+  `radius`、`anim`（slide / zoom）、`showMs`（850）、`invokeMs`、`cancelMs`、`subDelay`、`textColor`。
+
 ## 進度
 
 - [x] 第 1 階段：dll 骨架（Create / Capture / Present / Destroy、深淺色、Acrylic）
 - [x] 第 2 階段：內容層（文字、圖示、圖片、色塊、分隔線）
 - [x] 第 3 階段：動畫與重截（`WDA_EXCLUDEFROMCAPTURE`）
-- [ ] 第 4 階段：GlassMenu
+- [x] 第 4 階段：GlassMenu
 - [ ] 第 5 階段：MSVC、發布準備

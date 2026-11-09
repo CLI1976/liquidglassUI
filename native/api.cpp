@@ -322,111 +322,103 @@ bool PushAlphaOnly(Context& c) {
     return UpdateLayeredWindow(c.hwnd, nullptr, nullptr, nullptr, nullptr, nullptr, 0, &blend, ULW_ALPHA) != FALSE;
 }
 
-// kind 1: slide down into place + fade in. The glass material and content move together;
-// the background is sampled at fixed screen coordinates, so it stays put.
-int AnimateSlideIn(Context& c, int ms) {
-    const float dist = 14 * c.scale;
-    const double start = NowMs();
-    int frames = 0;
-    bool shown = false;
-    for (;;) {
-        double t = std::min(1.0, (NowMs() - start) / ms);
-        int dy = static_cast<int>(std::lround(-(1 - EaseOutBack(t)) * dist));
+// ---- Animation state machine: AnimBegin sets up, AnimStep draws the frame for "now".
+// AHK can drive AnimStep from a timer (non-blocking, the menu stays interactive), and
+// LG_Animate simply loops it with DwmFlush (blocking).
+//   kind 1: slide down into place + fade in. Material and content move together; the
+//           background is sampled at fixed screen coordinates, so it stays put.
+//   kind 2: fade out, then hide. Only the window alpha changes.
+//   kind 3: grow from the panel center (0.92 -> 1) + fade in. The finished frame is scaled
+//           as a whole, so the background inside zooms slightly until it ends exact.
+// Step returns 1 = more frames, 2 = finished, 0 = error.
+
+void FinishShown(Context& c) {
+    c.anim.kind = 0;
+    c.anim.rest.clear();
+    c.alpha = 255;
+}
+
+int AnimStep(Context& c) {
+    AnimState& a = c.anim;
+    if (!a.kind) return 2;
+    double t = a.ms > 0 ? std::min(1.0, (NowMs() - a.start) / a.ms) : 1.0;
+    ++a.frames;
+    if (a.kind == 2) {
+        c.alpha = static_cast<BYTE>(std::lround(a.fromAlpha * (1 - t * t)));  // ease-in: lingers, then goes
+        if (t >= 1) {
+            ShowWindow(c.hwnd, SW_HIDE);
+            a.kind = 0;
+            c.alpha = 255;
+            return 2;
+        }
+        if (!PushAlphaOnly(c)) {
+            SetError(L"LG_AnimStep：UpdateLayeredWindow 失敗（錯誤 %lu）", GetLastError());
+            return 0;
+        }
+        return 1;
+    }
+    if (a.kind == 1) {
+        int dy = static_cast<int>(std::lround(-(1 - EaseOutBack(t)) * 14 * c.scale));
         c.alpha = static_cast<BYTE>(std::lround(255 * std::min(1.0, t * 2.5)));
+        if (t >= 1) dy = 0, c.alpha = 255;
         Compose(c, 0, dy);
-        if (!Push(c)) return 0;
-        if (!shown) {
-            ShowNoActivate(c.hwnd);
-            shown = true;
+    } else {  // kind 3
+        const size_t count = static_cast<size_t>(c.winW) * c.winH;
+        if (t >= 1 || a.rest.size() != count) {
+            t = 1;
+            Compose(c, 0, 0);  // content may have changed during the animation
+            c.alpha = 255;
+        } else {
+            float s = static_cast<float>(0.92 + 0.08 * EaseOutCubic(t));
+            Gdiplus::Bitmap src(c.winW, c.winH, c.winW * 4, PixelFormat32bppPARGB, reinterpret_cast<BYTE*>(a.rest.data()));
+            Gdiplus::Bitmap dst(c.winW, c.winH, c.winW * 4, PixelFormat32bppPARGB, reinterpret_cast<BYTE*>(c.bits));
+            Gdiplus::Graphics g(&dst);
+            g.SetInterpolationMode(Gdiplus::InterpolationModeBilinear);
+            g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+            g.SetCompositingMode(Gdiplus::CompositingModeSourceCopy);
+            const float cx = c.margin + c.panelW / 2.0f, cy = c.margin + c.panelH / 2.0f;
+            std::fill(c.bits, c.bits + count, 0);
+            g.DrawImage(&src, Gdiplus::RectF(cx - cx * s, cy - cy * s, c.winW * s, c.winH * s));
+            c.alpha = static_cast<BYTE>(std::lround(255 * std::min(1.0, t * 2)));
         }
-        ++frames;
-        if (t >= 1) break;
-        DwmFlush();  // one frame per compositor refresh
     }
-    if (c.alpha != 255 || !c.baseValid) {  // make sure we end on the cached rest frame
-        c.alpha = 255;
-        Compose(c, 0, 0);
-        if (!Push(c)) return 0;
-    }
-    return frames;
-}
-
-// kind 2: fade out, then hide. The frame is composed once; only the window alpha changes.
-int AnimateFadeOut(Context& c, int ms) {
-    const BYTE from = c.alpha;
-    const double start = NowMs();
-    int frames = 0;
-    for (;;) {
-        double t = std::min(1.0, (NowMs() - start) / ms);
-        c.alpha = static_cast<BYTE>(std::lround(from * (1 - t * t)));  // ease-in: lingers, then goes
-        if (!PushAlphaOnly(c)) break;
-        ++frames;
-        if (t >= 1) break;
-        DwmFlush();
-    }
-    ShowWindow(c.hwnd, SW_HIDE);
-    c.alpha = 255;
-    return std::max(frames, 1);
-}
-
-// kind 3: grow from the panel center (0.92 -> 1) + fade in. The finished frame is scaled as a
-// whole, so the background inside zooms slightly during the ~150 ms; it ends exact.
-int AnimateZoomIn(Context& c, int ms) {
-    c.alpha = 255;
-    Compose(c, 0, 0);
-    const size_t count = static_cast<size_t>(c.winW) * c.winH;
-    std::vector<DWORD> rest(c.bits, c.bits + count);
-    Gdiplus::Bitmap src(c.winW, c.winH, c.winW * 4, PixelFormat32bppPARGB, reinterpret_cast<BYTE*>(rest.data()));
-    Gdiplus::Bitmap dst(c.winW, c.winH, c.winW * 4, PixelFormat32bppPARGB, reinterpret_cast<BYTE*>(c.bits));
-    Gdiplus::Graphics g(&dst);
-    g.SetInterpolationMode(Gdiplus::InterpolationModeBilinear);
-    g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
-    g.SetCompositingMode(Gdiplus::CompositingModeSourceCopy);
-    const float cx = c.margin + c.panelW / 2.0f, cy = c.margin + c.panelH / 2.0f;
-    const double start = NowMs();
-    int frames = 0;
-    bool shown = false;
-    for (;;) {
-        double t = std::min(1.0, (NowMs() - start) / ms);
-        if (t >= 1) break;
-        float s = static_cast<float>(0.92 + 0.08 * EaseOutCubic(t));
-        std::fill(c.bits, c.bits + count, 0);
-        g.DrawImage(&src, Gdiplus::RectF(cx - cx * s, cy - cy * s, c.winW * s, c.winH * s));
-        c.alpha = static_cast<BYTE>(std::lround(255 * std::min(1.0, t * 2)));
-        if (!Push(c)) return 0;
-        if (!shown) {
-            ShowNoActivate(c.hwnd);
-            shown = true;
-        }
-        ++frames;
-        DwmFlush();
-    }
-    std::memcpy(c.bits, rest.data(), count * sizeof(DWORD));
-    c.alpha = 255;
     if (!Push(c)) return 0;
-    ShowNoActivate(c.hwnd);
-    return frames + 1;
+    if (!a.shown) {
+        ShowNoActivate(c.hwnd);
+        a.shown = true;
+    }
+    if (t >= 1) {
+        FinishShown(c);
+        return 2;
+    }
+    return 1;
 }
 
-// Blocking; returns the number of frames drawn (0 = failure).
-int Animate(Context& c, int kind, int ms) {
+// Returns 1 = started (call AnimStep), 2 = already finished (no animation needed), 0 = error.
+int AnimBegin(Context& c, int kind, int ms) {
     if (kind < 1 || kind > 3) {
-        SetError(L"LG_Animate：未知的動畫種類 %d（1 = 滑入，2 = 淡出，3 = 縮放）", kind);
+        SetError(L"LG_AnimBegin：未知的動畫種類 %d（1 = 滑入，2 = 淡出，3 = 縮放）", kind);
         return 0;
     }
     ms = std::clamp(ms, 0, 5000);
     const bool on = ms > 0 && AnimationsEnabled();
+    AnimState& a = c.anim;
+    a = AnimState{};
     if (kind == 2) {
-        if (!IsWindowVisible(c.hwnd)) return 1;
+        if (!IsWindowVisible(c.hwnd)) return 2;
         if (!on) {
             ShowWindow(c.hwnd, SW_HIDE);
             c.alpha = 255;
-            return 1;
+            return 2;
         }
-        return AnimateFadeOut(c, ms);
+        a.kind = 2;
+        a.ms = ms;
+        a.fromAlpha = c.alpha;
+        a.start = NowMs();
+        return 1;
     }
     if (!c.captured) {
-        SetError(L"LG_Animate：尚未截取背景，請先呼叫 LG_Capture");
+        SetError(L"LG_AnimBegin：尚未截取背景，請先呼叫 LG_Capture");
         return 0;
     }
     c.pos = c.capturePos;  // shows where the background was captured
@@ -436,12 +428,33 @@ int Animate(Context& c, int kind, int ms) {
         Compose(c, 0, 0);
         if (!Push(c)) return 0;
         ShowNoActivate(c.hwnd);
-        return 1;
+        return 2;
     }
-    return kind == 1 ? AnimateSlideIn(c, ms) : AnimateZoomIn(c, ms);
+    a.kind = kind;
+    a.ms = ms;
+    if (kind == 3) {
+        c.alpha = 255;
+        Compose(c, 0, 0);
+        a.rest.assign(c.bits, c.bits + static_cast<size_t>(c.winW) * c.winH);
+    }
+    a.start = NowMs();
+    return 1;
+}
+
+// Blocking; returns the number of frames drawn (0 = failure).
+int Animate(Context& c, int kind, int ms) {
+    int r = AnimBegin(c, kind, ms);
+    if (r != 1) return r ? 1 : 0;
+    for (;;) {
+        r = AnimStep(c);
+        if (r != 1) break;
+        DwmFlush();  // one frame per compositor refresh
+    }
+    return r == 2 ? std::max(1, c.anim.frames) : 0;
 }
 
 bool Present(Context& c, int panelX, int panelY) {
+    c.anim = AnimState{};  // an immediate present ends any running animation
     if (!c.captured) CaptureAt(c, panelX, panelY);
     c.pos = {panelX - c.margin, panelY - c.margin};
     if (!EnsureDib(c)) return false;
@@ -667,9 +680,37 @@ int LG_Update(void* h) {
             SetError(L"LG_Update：尚未截取背景，請先呼叫 LG_Capture 或 LG_Present");
             return 0;
         }
+        // Showing animation running: the next LG_AnimStep picks up the new content.
+        if (c->anim.kind == 1 || c->anim.kind == 3) return 1;
         if (!EnsureDib(*c)) return 0;
         Compose(*c, 0, 0);
         return Push(*c) ? 1 : 0;
+    });
+}
+
+// Non-blocking animation: LG_AnimBegin, then LG_AnimStep from a timer until it returns 2.
+// Begin: 1 = started, 2 = nothing to animate (already in the final state), 0 = error.
+int LG_AnimBegin(void* h, int kind, int ms) {
+    return Guard(L"LG_AnimBegin", 0, [&] {
+        Context* c = Get(h, L"LG_AnimBegin");
+        return c ? AnimBegin(*c, kind, ms) : 0;
+    });
+}
+
+// Draws the frame for the current time: 1 = more frames, 2 = finished, 0 = error.
+int LG_AnimStep(void* h) {
+    return Guard(L"LG_AnimStep", 0, [&] {
+        Context* c = Get(h, L"LG_AnimStep");
+        return c ? AnimStep(*c) : 0;
+    });
+}
+
+// Width in px of single-line text (same font handling as LG_Text; flags 0x01 = bold). -1 on error.
+int LG_MeasureText(const wchar_t* text, const wchar_t* font, int sizePx, int flags) {
+    return Guard(L"LG_MeasureText", -1, [&] {
+        if (!EnsureGdiplus()) return -1;
+        float w = CanvasMeasureText(text, font, static_cast<float>(sizePx), flags);
+        return w < 0 ? -1 : static_cast<int>(std::ceil(w));
     });
 }
 

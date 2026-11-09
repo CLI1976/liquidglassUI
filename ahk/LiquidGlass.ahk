@@ -124,6 +124,7 @@ class LiquidGlass {
     __Delete() => this.Destroy()
 
     Destroy() {
+        this._StopAnim()
         if this.Ptr {
             try DllCall(LiquidGlass._Proc("LG_Destroy"), "Ptr", this.Ptr, "Int")
             this.Ptr := 0
@@ -193,6 +194,7 @@ class LiquidGlass {
     ; anim: "" (none), "slide" (slide in + fade in), "zoom" (grow from center). Blocking.
     ; Returns the number of frames drawn.
     Show(x, y, anim := "", ms := 850) {
+        this._StopAnim()
         if (x != this._capX || y != this._capY)
             this.Capture(x, y)
         this.X := x
@@ -219,12 +221,105 @@ class LiquidGlass {
     Hide(anim := "", ms := 800) {
         if !IsObject(this.Gui)
             return
+        this._StopAnim()
         switch anim, false {
             case "", "none": this.Gui.Hide()
             case "fade":
                 LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Animate"), "Ptr", this.Ptr, "Int", 2, "Int", ms, "Int"), "LG_Animate")
             default: throw ValueError("未知的動畫：" anim "（可用 fade）", -1)
         }
+    }
+
+    ; ---------------------------------------------------------------- non-blocking animation
+    ; Frames advance on a shared timer, so hotkeys / mouse / hover keep working meanwhile.
+    ; Content changes during a showing animation are picked up by the next frame.
+    ; onDone (optional) is called once the animation has finished.
+
+    ShowAsync(x, y, anim := "slide", ms := 850, onDone := "") {
+        if (x != this._capX || y != this._capY)
+            this.Capture(x, y)
+        this.X := x
+        this.Y := y
+        switch anim, false {
+            case "", "none":
+                this._StopAnim()
+                LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Present"), "Ptr", this.Ptr, "Int", x, "Int", y, "Int"), "LG_Present")
+                if onDone
+                    onDone()
+                return
+            case "slide": kind := 1
+            case "zoom", "scale": kind := 3
+            default: throw ValueError("未知的動畫：" anim "（可用 slide / zoom）", -1)
+        }
+        this._StartAnim(kind, ms, onDone)
+    }
+
+    HideAsync(ms := 800, onDone := "") => this._StartAnim(2, ms, onDone)
+
+    ; True while a ShowAsync / HideAsync animation is running.
+    Animating => this.Ptr && LiquidGlass._running.Has(this.Ptr)
+
+    static _running := Map()   ; Ptr -> {lg, done}
+    static _tickFn := ""
+
+    _StartAnim(kind, ms, onDone) {
+        r := LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_AnimBegin"), "Ptr", this.Ptr, "Int", kind, "Int", ms, "Int"), "LG_AnimBegin")
+        if r = 2 {   ; nothing to animate (already there, or animations are off)
+            this._StopAnim()
+            if onDone
+                onDone()
+            return
+        }
+        if !LiquidGlass._running.Count {
+            DllCall("winmm\timeBeginPeriod", "UInt", 1, "UInt")   ; ~1 ms timer resolution for smooth frames
+            if !LiquidGlass._tickFn
+                LiquidGlass._tickFn := ObjBindMethod(LiquidGlass, "_Tick")
+            SetTimer LiquidGlass._tickFn, 10
+        }
+        LiquidGlass._running[this.Ptr] := {lg: this, done: onDone}
+        LiquidGlass._StepOne(this.Ptr)   ; first frame right away
+    }
+
+    _StopAnim() {
+        if this.Ptr && LiquidGlass._running.Has(this.Ptr) {
+            LiquidGlass._running.Delete(this.Ptr)
+            LiquidGlass._MaybeStopTimer()
+        }
+    }
+
+    static _StepOne(ptr) {
+        if !this._running.Has(ptr)
+            return
+        e := this._running[ptr]
+        r := DllCall(this._Proc("LG_AnimStep"), "Ptr", ptr, "Int")
+        if r = 1
+            return
+        this._running.Delete(ptr)
+        this._MaybeStopTimer()
+        if r = 0
+            OutputDebug "LiquidGlass: LG_AnimStep 失敗：" this.LastError()
+        if e.done
+            e.done.Call()
+    }
+
+    static _Tick() {
+        for ptr in [this._running*]   ; snapshot of keys: callbacks may start / stop animations
+            this._StepOne(ptr)
+    }
+
+    static _MaybeStopTimer() {
+        if this._running.Count || !this._tickFn
+            return
+        SetTimer this._tickFn, 0
+        DllCall("winmm\timeEndPeriod", "UInt", 1, "UInt")
+    }
+
+    ; Width in px of single-line text drawn with Text() using the same font options.
+    static MeasureText(text, size := 15, bold := false, font := "") {
+        w := DllCall(this._Proc("LG_MeasureText"), "WStr", String(text), "WStr", font, "Int", size, "Int", bold ? 1 : 0, "Int")
+        if w < 0
+            throw Error("LG_MeasureText 失敗：" this.LastError())
+        return w
     }
 
     ; ---------------------------------------------------------------- content layer

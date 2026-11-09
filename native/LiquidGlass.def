@@ -13,6 +13,8 @@ EXPORTS
     LG_Capture
     LG_Present
     LG_Animate
+    LG_AnimBegin
+    LG_AnimStep
     LG_Update
     LG_BaseLuma
     LG_Clear
@@ -22,4 +24,5 @@ EXPORTS
     LG_Icon
     LG_IconFile
     LG_Image
+    LG_MeasureText
     LG_LastError

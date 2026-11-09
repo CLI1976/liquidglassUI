@@ -197,7 +197,45 @@ Bitmap* CachedImage(const wchar_t* path) {
     return raw;
 }
 
+// Font for LG_Text / LG_MeasureText; falls back to the generic sans serif family.
+std::unique_ptr<Font> MakeFont(const wchar_t* font, float sizePx, int flags, const wchar_t* fn) {
+    const wchar_t* family = (font && *font) ? font : L"Microsoft JhengHei UI";
+    FontFamily ff(family);
+    std::unique_ptr<FontFamily> fallback;
+    const FontFamily* use = &ff;
+    if (ff.GetLastStatus() != Ok) {
+        fallback.reset(FontFamily::GenericSansSerif()->Clone());
+        use = fallback.get();
+    }
+    int style = (flags & kTextBold) ? FontStyleBold : FontStyleRegular;
+    if (!use->IsStyleAvailable(style)) style = FontStyleRegular;
+    auto f = std::make_unique<Font>(use, sizePx > 0 ? sizePx : 14.0f, style, UnitPixel);
+    if (f->GetLastStatus() != Ok) {
+        SetError(L"%ls：無法建立字型「%ls」", fn, family);
+        return nullptr;
+    }
+    return f;
+}
+
 }  // namespace
+
+float CanvasMeasureText(const wchar_t* text, const wchar_t* font, float sizePx, int flags) {
+    if (!text || !*text) return 0;
+    std::unique_ptr<Font> f = MakeFont(font, sizePx, flags, L"LG_MeasureText");
+    if (!f) return -1;
+    Bitmap bmp(1, 1, PixelFormat32bppPARGB);
+    Graphics g(&bmp);
+    g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
+    g.SetPixelOffsetMode(PixelOffsetModeHalf);
+    StringFormat fmt;  // same default format as LG_Text, so widths match what is drawn
+    fmt.SetFormatFlags(StringFormatFlagsNoWrap);
+    RectF box;
+    if (g.MeasureString(text, -1, f.get(), PointF(0, 0), &fmt, &box) != Ok) {
+        SetError(L"LG_MeasureText：量測失敗");
+        return -1;
+    }
+    return box.Width;
+}
 
 // ---------------------------------------------------------------- called from api.cpp exports
 bool CanvasClear(Context& c) {
@@ -235,21 +273,9 @@ bool CanvasText(Context& c, const wchar_t* text, float x, float y, float w, floa
     if (!text || !*text || w <= 0 || h <= 0) return true;
     ContentGraphics cg;
     if (!OpenContent(c, cg, L"LG_Text")) return false;
-    const wchar_t* family = (font && *font) ? font : L"Microsoft JhengHei UI";
-    FontFamily ff(family);
-    std::unique_ptr<FontFamily> fallback;
-    const FontFamily* use = &ff;
-    if (ff.GetLastStatus() != Ok) {
-        fallback.reset(FontFamily::GenericSansSerif()->Clone());
-        use = fallback.get();
-    }
-    int style = (flags & kTextBold) ? FontStyleBold : FontStyleRegular;
-    if (!use->IsStyleAvailable(style)) style = FontStyleRegular;
-    Font f(use, sizePx > 0 ? sizePx : 14.0f, style, UnitPixel);
-    if (f.GetLastStatus() != Ok) {
-        SetError(L"LG_Text：無法建立字型「%ls」", family);
-        return false;
-    }
+    std::unique_ptr<Font> fp = MakeFont(font, sizePx, flags, L"LG_Text");
+    if (!fp) return false;
+    Font& f = *fp;
     StringFormat fmt;
     fmt.SetAlignment((flags & kTextCenter) ? StringAlignmentCenter
                                           : (flags & kTextRight) ? StringAlignmentFar : StringAlignmentNear);

@@ -32,6 +32,16 @@ namespace lg {
 
 constexpr DWORD kContextMagic = 0x4C47'4C41;  // "LGLA"
 
+struct AnimState {
+    int kind = 0;  // 0 = idle, 1 = slide in, 2 = fade out, 3 = zoom in
+    int ms = 0;
+    double start = 0;
+    BYTE fromAlpha = 255;
+    bool shown = false;
+    int frames = 0;
+    std::vector<DWORD> rest;  // zoom: the finished frame
+};
+
 struct Context {
     DWORD magic = kContextMagic;
     HWND hwnd = nullptr;
@@ -68,6 +78,7 @@ struct Context {
     POINT pos = {};  // current window top-left on screen
     BYTE alpha = 255;
     int excludeWorks = 0;  // WDA_EXCLUDEFROMCAPTURE: 0 = unknown, 1 = works, -1 = not supported
+    AnimState anim;
 };
 
 // Defined in api.cpp
@@ -94,5 +105,6 @@ bool CanvasText(Context& c, const wchar_t* text, float x, float y, float w, floa
 bool CanvasIcon(Context& c, HICON icon, float x, float y, float size);
 bool CanvasIconFile(Context& c, const wchar_t* path, int index, float x, float y, float size);
 bool CanvasImage(Context& c, const wchar_t* path, float x, float y, float w, float h);
+float CanvasMeasureText(const wchar_t* text, const wchar_t* font, float sizePx, int flags);
 
 }  // namespace lg

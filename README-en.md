@@ -25,6 +25,13 @@ See [SPEC.md](SPEC.md) (Traditional Chinese) for the full specification.
 - The original `SetFlip` (text inversion guard) code is kept but not wired up in v1.
 - TaskbarPopup's taskbar features (window list, thumbnails, tray, volume, ...) are not included.
 
+## GlassMenu
+
+`ahk/GlassMenu.ahk` is a popup menu built on the glass panel, with an interface modelled on AHK's `Menu()`
+(`Add`, `SetIcon`, `Delete`, `Disable` / `Enable`, `Show(x?, y?)`, `Close()`; callbacks receive
+`(ItemName, ItemPos, MenuObj)`). It supports submenus with their own tint, hover, keyboard navigation,
+closing on outside clicks / Win / Alt+Tab, and never takes focus. See `examples/demo_menu.ahk`.
+
 ## Build
 
 ```sh
