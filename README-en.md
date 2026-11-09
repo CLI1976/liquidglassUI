@@ -80,20 +80,24 @@ On a secondary monitor with a different scale, Windows stretches the window (cor
 
 ## Build
 
+Both compilers produce the same dll (pixel-identical output) at `bin\x64\LiquidGlass.dll`, with a static CRT and
+only user32, gdi32, gdiplus and dwmapi as dependencies.
+
+**MSVC** (used for `bin\x64`; antivirus heuristics tend to be milder on it). Needs Visual Studio 2019/2022 (Build
+Tools are enough) with the C++ workload, a Windows 10/11 SDK and the C++ CMake tools:
+
+```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive"
+build-msvc.bat       # finds Visual Studio itself; no developer prompt needed
+```
+
+`/MT`, `/guard:cf`, `/DYNAMICBASE`, `/NXCOMPAT`, full version resource, no packing.
+
+**MinGW-w64** (alternative; Linux cross, or MSYS2 / w64devkit on Windows):
+
 ```sh
-./build-mingw.sh     # MinGW-w64 x64 (Linux cross, or MSYS2 / w64devkit on Windows) — used for bin\x64
+./build-mingw.sh
 ```
-
-Static CRT, depends only on user32, gdi32, gdiplus and dwmapi.
-
-MSVC (optional, e.g. if an antivirus flags the MinGW build; needs a Windows 10/11 SDK and CMake):
-
-```bat
-cmake -S native -B build\msvc -A x64
-cmake --build build\msvc --config Release
-```
-
-Static CRT, `/guard:cf`, full version resource, no packing.
 
 ## Contributors
 

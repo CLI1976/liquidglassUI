@@ -1,4 +1,4 @@
-# LiquidGlass.dll - MSVC x64 (primary for releases), MinGW-w64 as fallback.
+# LiquidGlass.dll - MSVC x64 (used for bin/x64), MinGW-w64 via build-mingw.sh as an alternative.
 #
 #   cmake -S native -B build/msvc -A x64
 #   cmake --build build/msvc --config Release

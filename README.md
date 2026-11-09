@@ -102,7 +102,28 @@ lg.Hide("fade", 800)                               ; 淡出後隱藏；HideAsync
 
 ## 編譯
 
-### MinGW-w64（預設，`bin\x64` 內的 dll 即以此編譯）
+兩種編譯器產生的 dll 功能相同，畫面逐像素一致；都輸出到 `bin\x64\LiquidGlass.dll`，靜態連結 CRT，
+只依賴 user32、gdi32、gdiplus、dwmapi。
+
+### MSVC（預設，`bin\x64` 內的 dll 即以此編譯）
+
+部分防毒的啟發式掃描對 MSVC 編譯的檔案較寬鬆，所以發布版用 MSVC。需要 Visual Studio 2019 / 2022
+（Build Tools 即可）的「使用 C++ 的桌面開發」工作負載，**含 Windows 10/11 SDK** 與 C++ CMake 工具：
+
+```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive"
+```
+
+裝好後在 repo 根目錄執行（會自動找 Visual Studio，不用開開發者命令提示字元）：
+
+```bat
+build-msvc.bat
+```
+
+已用 VS 2022 Build Tools（MSVC 19.44、Windows SDK 10.0.26100）驗證。靜態連結 CRT（`/MT`），
+開啟 `/guard:cf`、`/DYNAMICBASE`、`/NXCOMPAT`，並嵌入完整的版本資訊資源；不加殼、不壓縮。
+
+### MinGW-w64（替代）
 
 Linux 交叉編譯（需 `g++-mingw-w64-x86-64-posix`），或 Windows 上的 MSYS2 / [w64devkit](https://github.com/skeeto/w64devkit)
 （已用 w64devkit 2.11.0、GCC 16.2 驗證）。Windows 上把 w64devkit 的 `bin` 加到 PATH 後執行：
@@ -110,21 +131,6 @@ Linux 交叉編譯（需 `g++-mingw-w64-x86-64-posix`），或 Windows 上的 MS
 ```sh
 ./build-mingw.sh
 ```
-
-輸出 `bin/x64/LiquidGlass.dll`，靜態連結 CRT，只依賴 user32、gdi32、gdiplus、dwmapi。
-
-### MSVC（選用：防毒軟體誤判 MinGW 版時使用）
-
-功能與 MinGW 版相同；部分防毒的啟發式掃描對 MSVC 編譯的檔案較寬鬆。需要 Visual Studio 的
-「使用 C++ 的桌面開發」工作負載（**含 Windows 10/11 SDK** 與 CMake）：
-
-```bat
-cmake -S native -B build\msvc -A x64
-cmake --build build\msvc --config Release
-```
-
-同樣輸出到 `bin\x64\LiquidGlass.dll`，靜態連結 CRT（`/MT`），開啟 `/guard:cf`、`/DYNAMICBASE`、`/NXCOMPAT`，
-並嵌入完整的版本資訊資源；不加殼、不壓縮。
 
 ## 目錄
 
