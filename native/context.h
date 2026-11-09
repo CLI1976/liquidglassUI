@@ -73,4 +73,25 @@ struct Context {
 void SetError(const wchar_t* fmt, ...);
 bool EnsureGdiplus();
 
+// LG_Text flags
+enum TextFlags {
+    kTextBold = 0x01,
+    kTextCenter = 0x02,    // horizontal center
+    kTextRight = 0x04,     // right aligned
+    kTextVCenter = 0x08,   // vertical center
+    kTextEllipsis = 0x10,  // trim with "…"
+    kTextNoWrap = 0x20,    // single line
+    kTextBottom = 0x40,    // bottom aligned
+};
+
+// Defined in canvas.cpp (panel-relative coordinates)
+bool CanvasClear(Context& c);
+bool CanvasFillRoundRect(Context& c, float x, float y, float w, float h, float r, DWORD argb);
+bool CanvasLine(Context& c, float x1, float y1, float x2, float y2, float width, DWORD argb);
+bool CanvasText(Context& c, const wchar_t* text, float x, float y, float w, float h, const wchar_t* font,
+                float sizePx, int flags, DWORD argb);
+bool CanvasIcon(Context& c, HICON icon, float x, float y, float size);
+bool CanvasIconFile(Context& c, const wchar_t* path, int index, float x, float y, float size);
+bool CanvasImage(Context& c, const wchar_t* path, float x, float y, float w, float h);
+
 }  // namespace lg

@@ -209,6 +209,79 @@ class LiquidGlass {
             this.Gui.Hide()
     }
 
+    ; ---------------------------------------------------------------- content layer
+    ; Panel-relative physical pixels, colors 0xAARRGGBB. Call Update() / Show() to display.
+
+    Clear() {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Clear"), "Ptr", this.Ptr, "Int"), "LG_Clear")
+    }
+
+    ; Semi-transparent round rect (hover / selection).
+    Rect(x, y, w, h, r := 0, argb := 0x33FFFFFF) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_FillRoundRect"), "Ptr", this.Ptr, "Int", x, "Int", y
+            , "Int", w, "Int", h, "Int", r, "UInt", argb, "Int"), "LG_FillRoundRect")
+    }
+
+    ; Separator line. argb "auto" = subtle line matching light / dark glass.
+    Line(x1, y1, x2, y2, width := 1, argb := "auto") {
+        if argb = "auto"
+            argb := this.Light ? 0x26000000 : 0x33FFFFFF
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Line"), "Ptr", this.Ptr, "Int", x1, "Int", y1
+            , "Int", x2, "Int", y2, "Int", width, "UInt", argb, "Int"), "LG_Line")
+    }
+
+    ; opts: font ("Microsoft JhengHei UI"), size (15 px), bold, align (left/center/right),
+    ;       valign (top/center/bottom), ellipsis (true), wrap (false), color ("auto" or 0xAARRGGBB)
+    Text(text, x, y, w, h, opts := {}) {
+        flags := 0
+        if LiquidGlass._Opt(opts, "bold", false)
+            flags |= 0x01
+        switch LiquidGlass._Opt(opts, "align", "left"), false {
+            case "center": flags |= 0x02
+            case "right": flags |= 0x04
+        }
+        switch LiquidGlass._Opt(opts, "valign", "top"), false {
+            case "center": flags |= 0x08
+            case "bottom": flags |= 0x40
+        }
+        if LiquidGlass._Opt(opts, "ellipsis", true)
+            flags |= 0x10
+        if !LiquidGlass._Opt(opts, "wrap", false)
+            flags |= 0x20
+        color := LiquidGlass._Opt(opts, "color", "auto")
+        if color = "auto"
+            color := this.AutoTextColor(x, y, w, h)
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Text"), "Ptr", this.Ptr, "WStr", String(text)
+            , "Int", x, "Int", y, "Int", w, "Int", h, "WStr", LiquidGlass._Opt(opts, "font", "")
+            , "Int", LiquidGlass._Opt(opts, "size", 15), "Int", flags, "UInt", color, "Int"), "LG_Text")
+    }
+
+    ; Dark text on light glass, white text on dark glass (judged from the actual glass below).
+    AutoTextColor(x, y, w, h) {
+        try luma := this.BaseLuma(x, y, w, h)
+        catch
+            luma := this.Light ? 255 : 0
+        return luma >= 128 ? 0xFF1A1A1A : 0xFFFFFFFF
+    }
+
+    ; Icon from .ico / .exe / .dll. index follows AHK: 1 = first icon, negative = resource ID.
+    Icon(file, index, x, y, size) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_IconFile"), "Ptr", this.Ptr, "WStr", file, "Int", index
+            , "Int", x, "Int", y, "Int", size, "Int"), "LG_IconFile")
+    }
+
+    ; Draws an HICON (32-bit alpha preserved). The caller keeps ownership of hIcon.
+    IconHandle(hIcon, x, y, size) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Icon"), "Ptr", this.Ptr, "Ptr", hIcon
+            , "Int", x, "Int", y, "Int", size, "Int"), "LG_Icon")
+    }
+
+    ; PNG or any GDI+ image. w / h = 0 keeps the aspect ratio (both 0 = natural size).
+    Image(file, x, y, w := 0, h := 0) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_Image"), "Ptr", this.Ptr, "WStr", file
+            , "Int", x, "Int", y, "Int", w, "Int", h, "Int"), "LG_Image")
+    }
+
     ; Average brightness (0 - 255) of the glass in a panel-relative rect.
     BaseLuma(x, y, w, h) {
         v := DllCall(LiquidGlass._Proc("LG_BaseLuma"), "Ptr", this.Ptr, "Int", x, "Int", y, "Int", w, "Int", h, "Float")

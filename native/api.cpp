@@ -446,6 +446,78 @@ float LG_BaseLuma(void* h, int x, int y, int w, int hgt) {
     });
 }
 
+// ---------------------------------------------------------------- content layer
+// Coordinates are panel-relative physical pixels; colors are 0xAARRGGBB.
+// Drawing only changes the content layer: call LG_Update / LG_Present to show it.
+
+int LG_Clear(void* h) {
+    return Guard(L"LG_Clear", 0, [&] {
+        Context* c = Get(h, L"LG_Clear");
+        return c && CanvasClear(*c) ? 1 : 0;
+    });
+}
+
+int LG_FillRoundRect(void* h, int x, int y, int w, int hgt, int r, UINT argb) {
+    return Guard(L"LG_FillRoundRect", 0, [&] {
+        Context* c = Get(h, L"LG_FillRoundRect");
+        return c && CanvasFillRoundRect(*c, static_cast<float>(x), static_cast<float>(y), static_cast<float>(w),
+                                        static_cast<float>(hgt), static_cast<float>(r), argb)
+                   ? 1
+                   : 0;
+    });
+}
+
+int LG_Line(void* h, int x1, int y1, int x2, int y2, int width, UINT argb) {
+    return Guard(L"LG_Line", 0, [&] {
+        Context* c = Get(h, L"LG_Line");
+        return c && CanvasLine(*c, static_cast<float>(x1), static_cast<float>(y1), static_cast<float>(x2),
+                               static_cast<float>(y2), static_cast<float>(width), argb)
+                   ? 1
+                   : 0;
+    });
+}
+
+// flags: 0x01 bold, 0x02 center, 0x04 right, 0x08 vcenter, 0x10 ellipsis, 0x20 no wrap, 0x40 bottom
+int LG_Text(void* h, const wchar_t* text, int x, int y, int w, int hgt, const wchar_t* font, int sizePx, int flags,
+            UINT argb) {
+    return Guard(L"LG_Text", 0, [&] {
+        Context* c = Get(h, L"LG_Text");
+        return c && CanvasText(*c, text, static_cast<float>(x), static_cast<float>(y), static_cast<float>(w),
+                               static_cast<float>(hgt), font, static_cast<float>(sizePx), flags, argb)
+                   ? 1
+                   : 0;
+    });
+}
+
+int LG_Icon(void* h, HICON icon, int x, int y, int size) {
+    return Guard(L"LG_Icon", 0, [&] {
+        Context* c = Get(h, L"LG_Icon");
+        return c && CanvasIcon(*c, icon, static_cast<float>(x), static_cast<float>(y), static_cast<float>(size)) ? 1 : 0;
+    });
+}
+
+// index follows AHK: 1 = first icon, negative = resource ID
+int LG_IconFile(void* h, const wchar_t* path, int index, int x, int y, int size) {
+    return Guard(L"LG_IconFile", 0, [&] {
+        Context* c = Get(h, L"LG_IconFile");
+        return c && CanvasIconFile(*c, path, index, static_cast<float>(x), static_cast<float>(y),
+                                   static_cast<float>(size))
+                   ? 1
+                   : 0;
+    });
+}
+
+// w / h <= 0 keeps the aspect ratio (both <= 0 = natural size)
+int LG_Image(void* h, const wchar_t* path, int x, int y, int w, int hgt) {
+    return Guard(L"LG_Image", 0, [&] {
+        Context* c = Get(h, L"LG_Image");
+        return c && CanvasImage(*c, path, static_cast<float>(x), static_cast<float>(y), static_cast<float>(w),
+                                static_cast<float>(hgt))
+                   ? 1
+                   : 0;
+    });
+}
+
 const wchar_t* LG_LastError() { return t_error.c_str(); }
 
 }  // extern "C"

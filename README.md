@@ -60,12 +60,28 @@ lg.SetStyle("acrylic"), lg.Update()
 lg.Hide()
 ```
 
+內容層（座標相對面板左上角，顏色 `0xAARRGGBB`，畫完呼叫 `Update()` 或 `Show()`）：
+
+```ahk
+lg.Capture(x, y)                                   ; 先截背景，"auto" 文字顏色才判斷得準
+lg.Clear()
+lg.Rect(8, 8, 284, 40, 10, 0x33FFFFFF)             ; 半透明圓角色塊
+lg.Icon("imageres.dll", 194, 16, 12, 32)           ; .ico / exe / dll，索引同 AHK（1 起算，負數 = 資源 ID）
+lg.Image("logo.png", 16, 60, 32, 32)               ; PNG 等 GDI+ 支援的圖片
+lg.Line(16, 56, 284, 56)                           ; 分隔線，預設顏色跟著深淺色
+lg.Text("開啟", 56, 8, 200, 40, {size: 15, valign: "center", color: "auto"})
+lg.Show(x, y)
+```
+
+`Text` 選項：`font`（預設 Microsoft JhengHei UI）、`size`、`bold`、`align`（left / center / right）、
+`valign`（top / center / bottom）、`ellipsis`（預設 true）、`wrap`（預設 false）、`color`（`"auto"` 依玻璃實際亮度選黑或白）。
+
 座標與尺寸一律是實體像素。dll 預設路徑為 `ahk\..\bin\x64\LiquidGlass.dll`，可用 `LiquidGlass.DllPath` 覆寫。
 
 ## 進度
 
 - [x] 第 1 階段：dll 骨架（Create / Capture / Present / Destroy、深淺色、Acrylic）
-- [ ] 第 2 階段：內容層（文字、圖示、圖片、色塊、分隔線）
+- [x] 第 2 階段：內容層（文字、圖示、圖片、色塊、分隔線）
 - [ ] 第 3 階段：動畫與重截（`WDA_EXCLUDEFROMCAPTURE`）
 - [ ] 第 4 階段：GlassMenu
 - [ ] 第 5 階段：MSVC、發布準備

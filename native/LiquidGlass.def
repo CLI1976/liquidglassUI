@@ -14,4 +14,11 @@ EXPORTS
     LG_Present
     LG_Update
     LG_BaseLuma
+    LG_Clear
+    LG_FillRoundRect
+    LG_Line
+    LG_Text
+    LG_Icon
+    LG_IconFile
+    LG_Image
     LG_LastError

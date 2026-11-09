@@ -66,8 +66,9 @@ public:
     unsigned Version() const { return m_version; }
 
     // Average luma (0 - 255) of the tinted glass inside rect (window coordinates).
-    // origin: window top-left on screen.
-    float BaseLuma(float x, float y, float w, float h, POINT origin) const;
+    // origin: window top-left on screen. guarded = include the readability guard (what is
+    // actually drawn); false = tint only, as in the original (used for SetFlip).
+    float BaseLuma(float x, float y, float w, float h, POINT origin, bool guarded = true) const;
 
     // Text-inversion guard from the original (not wired up in v1, kept for later).
     bool SetFlip(std::vector<float> flip, std::vector<float> nearby, int gw, int gh, float cell);

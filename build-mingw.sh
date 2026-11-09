@@ -20,7 +20,7 @@ mkdir -p bin/x64 build
 "${PREFIX}g++" -std=c++17 -O2 -s -Wall -Wextra -Wno-missing-field-initializers \
     -DUNICODE -D_UNICODE -DNOMINMAX -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 \
     -shared -o bin/x64/LiquidGlass.dll \
-    native/api.cpp native/glass.cpp native/LiquidGlass.def build/LiquidGlass.res \
+    native/api.cpp native/glass.cpp native/canvas.cpp native/LiquidGlass.def build/LiquidGlass.res \
     -static -static-libgcc -static-libstdc++ \
     -luser32 -lgdi32 -lgdiplus -ldwmapi
 echo "OK: bin/x64/LiquidGlass.dll"

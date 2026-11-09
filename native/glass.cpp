@@ -390,7 +390,7 @@ Glass::Tint Glass::TintNow() const {
     return t;
 }
 
-float Glass::BaseLuma(float rx, float ry, float rw, float rh, POINT origin) const {
+float Glass::BaseLuma(float rx, float ry, float rw, float rh, POINT origin, bool guarded) const {
     Tint t = TintNow();
     if (m_blur.empty() || rw <= 0 || rh <= 0) return t.luma;
     const int offX = origin.x - m_area.left, offY = origin.y - m_area.top;
@@ -402,7 +402,13 @@ float Glass::BaseLuma(float rx, float ry, float rw, float rh, POINT origin) cons
             DWORD p = Fetch(static_cast<int>(x) + offX, static_cast<int>(y) + offY);
             float c[3] = {static_cast<float>((p >> 16) & 0xFF), static_cast<float>((p >> 8) & 0xFF),
                           static_cast<float>(p & 0xFF)};
-            for (int k = 0; k < 3; ++k) c[k] += (t.rgb[k] - c[k]) * t.alpha;
+            float ta = t.alpha;
+            if (guarded) {  // same readability guard as RenderRows, so the result matches what is drawn
+                float lum = 0.299f * c[0] + 0.587f * c[1] + 0.114f * c[2];
+                if (m_light ? lum < t.bound : lum > t.bound)
+                    ta = std::min(0.94f, std::max(ta, (t.bound - lum) / (t.luma - lum) * t.guard));
+            }
+            for (int k = 0; k < 3; ++k) c[k] += (t.rgb[k] - c[k]) * ta;
             sum += 0.299f * c[0] + 0.587f * c[1] + 0.114f * c[2];
             ++n;
         }
