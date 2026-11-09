@@ -27,7 +27,7 @@ panelW := S(260), panelH := pad * 2 + rowH * rows.Length
 
 lg := LiquidGlass(panelW, panelH, {light: "auto", style: "liquid", radius: S(18)})
 auto := false, recaptures := 0
-slideMs := 300, zoomMs := 280, fadeMs := 250
+slideMs := 850, zoomMs := 830, fadeMs := 800
 Info("F1 滑入　F2 縮放　F3 淡出　F4 重截　F6 連續重截　F7/F8 調速　Esc 結束")
 
 Info(msg) => ToolTip("LiquidGlass 第 3 階段　滑入 " slideMs " / 縮放 " zoomMs " / 淡出 " fadeMs " ms`n" msg, 8, 8)
