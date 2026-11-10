@@ -1,9 +1,9 @@
-# LiquidGlass.dll - MSVC x64 (used for bin/x64), MinGW-w64 via build-mingw.sh as an alternative.
+# LiquidGlass.dll - MSVC x64 (used for lib/), MinGW-w64 via build-mingw.sh as an alternative.
 #
 #   cmake -S native -B build/msvc -A x64
 #   cmake --build build/msvc --config Release
 #
-# Output: bin/x64/LiquidGlass.dll (static CRT, no VC++ runtime needed).
+# Output: lib/LiquidGlass.dll (static CRT, no VC++ runtime needed).
 # Needs the "Desktop development with C++" workload including a Windows 10/11 SDK.
 cmake_minimum_required(VERSION 3.16)
 project(LiquidGlass LANGUAGES CXX RC)
@@ -30,7 +30,7 @@ target_link_libraries(LiquidGlass PRIVATE user32 gdi32 gdiplus dwmapi)
 set_target_properties(LiquidGlass PROPERTIES
     PREFIX ""
     OUTPUT_NAME LiquidGlass
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bin/x64/$<0:>")
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../lib/$<0:>")
 
 if(MSVC)
     # /utf-8: sources (error messages) are UTF-8. /guard:cf, /DYNAMICBASE, /NXCOMPAT and a full

@@ -11,11 +11,11 @@
 ## 快速開始
 
 1. 需要 Windows 10 2004+ / Windows 11，以及 [AutoHotkey v2](https://www.autohotkey.com/) 的 **64-bit** 版（`AutoHotkey64.exe`）。
-2. 下載本 repo（或 Releases 裡的 zip），`bin\x64\LiquidGlass.dll` 已經編好。
+2. 下載本 repo（或 Releases 裡的 zip），`lib\LiquidGlass.dll` 已經編好。
 3. 執行 `examples\simple_menu.ahk`，在任何地方按 **Ctrl + 右鍵**。
 
 ```ahk
-#Include ahk\GlassMenu.ahk
+#Include <GlassMenu>                              ; 腳本旁邊的 Lib\ 資料夾，見下方「放進自己的腳本」
 
 folders := GlassMenu({accent: 0xF8D86E})          ; 子選單，有自己的玻璃底色
 folders.Add("文件", (*) => Run(A_MyDocuments))
@@ -42,19 +42,21 @@ mainMenu.SetIcon("記事本", A_WinDir "\notepad.exe")
 
 ## 放進自己的腳本
 
-不用放進 AutoHotkey 的程式資料夾，也不用放進 `Lib`。把 `ahk\` 與 `bin\x64\` 照原本的相對位置帶著走即可：
+把 `lib\` 裡的三個檔案複製到腳本旁邊的 `Lib\` 資料夾（AHK 的[函式庫資料夾](https://www.autohotkey.com/docs/v2/Scripts.htm#lib)），
+就能用 `#Include <GlassMenu>` 載入：
 
 ```
 你的腳本資料夾\
-├─ MyScript.ahk            ← #Include LiquidGlass\ahk\GlassMenu.ahk
-└─ LiquidGlass\
-   ├─ LICENSE
-   ├─ ahk\LiquidGlass.ahk
-   ├─ ahk\GlassMenu.ahk
-   └─ bin\x64\LiquidGlass.dll
+├─ MyScript.ahk            ← #Include <GlassMenu>
+└─ Lib\
+   ├─ LiquidGlass.ahk
+   ├─ GlassMenu.ahk
+   └─ LiquidGlass.dll
 ```
 
-dll 依 `ahk\..\bin\x64\LiquidGlass.dll` 尋找，也可以在建立選單前用 `LiquidGlass.DllPath := "..."` 指定。
+要給所有腳本共用，也可以放進 `%A_MyDocuments%\AutoHotkey\Lib\`。三個檔案要放在同一個資料夾：
+`GlassMenu.ahk` 從自己所在的資料夾載入 `LiquidGlass.ahk`，dll 也是在 `LiquidGlass.ahk` 旁邊找，
+或在建立選單前用 `LiquidGlass.DllPath := "..."` 指定。發布時記得附上 `LICENSE`（AGPL-3.0）。
 dll 靜態連結執行階段，不需要安裝 VC++ 可轉散發套件。
 
 ## GlassMenu
@@ -75,7 +77,7 @@ dll 靜態連結執行階段，不需要安裝 VC++ 可轉散發套件。
 座標與尺寸一律是實體像素，內容座標相對面板左上角，顏色 `0xAARRGGBB`。
 
 ```ahk
-#Include ahk\LiquidGlass.ahk
+#Include <LiquidGlass>
 lg := LiquidGlass(300, 200, {radius: 22, light: "auto", style: "liquid", transparency: 60})
 lg.Capture(x, y)                                   ; 先截背景，"auto" 文字顏色才判斷得準
 lg.Clear()
@@ -102,10 +104,10 @@ lg.Hide("fade", 800)                               ; 淡出後隱藏；HideAsync
 
 ## 編譯
 
-兩種編譯器產生的 dll 功能相同，畫面逐像素一致；都輸出到 `bin\x64\LiquidGlass.dll`，靜態連結 CRT，
+兩種編譯器產生的 dll 功能相同，畫面逐像素一致；都輸出到 `lib\LiquidGlass.dll`，靜態連結 CRT，
 只依賴 user32、gdi32、gdiplus、dwmapi。
 
-### MSVC（預設，`bin\x64` 內的 dll 即以此編譯）
+### MSVC（預設，`lib` 內的 dll 即以此編譯）
 
 部分防毒的啟發式掃描對 MSVC 編譯的檔案較寬鬆，所以發布版用 MSVC。需要 Visual Studio 2019 / 2022
 （Build Tools 即可）的「使用 C++ 的桌面開發」工作負載，**含 Windows 10/11 SDK** 與 C++ CMake 工具：
@@ -136,9 +138,8 @@ Linux 交叉編譯（需 `g++-mingw-w64-x86-64-posix`），或 Windows 上的 MS
 
 ```
 native/     C++ 原始碼（glass、shape、canvas、api）、.def、版本資源、CMakeLists.txt
-ahk/        LiquidGlass.ahk（低階包裝類）、GlassMenu.ahk（玻璃選單）
+lib/        LiquidGlass.ahk（低階包裝類）、GlassMenu.ahk（玻璃選單）、編譯好的 LiquidGlass.dll
 examples/   通用範例
-bin/x64/    編譯好的 LiquidGlass.dll
 ```
 
 ## 貢獻者

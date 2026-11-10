@@ -6,7 +6,7 @@
 ;   點選單外、按 Win、Alt+Tab 都會關閉
 #Requires AutoHotkey v2.0 64-bit
 #SingleInstance Force
-#Include ..\ahk\GlassMenu.ahk
+#Include ..\lib\GlassMenu.ahk
 
 sys := A_WinDir "\System32"
 assets := A_ScriptDir "\assets"

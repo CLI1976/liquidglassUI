@@ -1,7 +1,7 @@
 ; simple_menu.ahk - the smallest useful GlassMenu: Ctrl + right click anywhere.
 #Requires AutoHotkey v2.0 64-bit
 #SingleInstance Force
-#Include ..\ahk\GlassMenu.ahk
+#Include ..\lib\GlassMenu.ahk
 
 ; A submenu with its own glass tint
 folders := GlassMenu({accent: 0xF8D86E})

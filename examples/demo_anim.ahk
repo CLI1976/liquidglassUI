@@ -9,7 +9,7 @@
 ;   Esc 結束
 #Requires AutoHotkey v2.0 64-bit
 #SingleInstance Force
-#Include ..\ahk\LiquidGlass.ahk
+#Include ..\lib\LiquidGlass.ahk
 
 CoordMode "Mouse", "Screen"
 CoordMode "ToolTip", "Screen"

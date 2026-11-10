@@ -48,13 +48,13 @@ LiquidGlass/
     canvas.cpp            ← 內容層：GDI+ 文字、圖示、色塊
     api.cpp               ← extern "C" 匯出函式
     LiquidGlass.def
-  ahk/
+  lib/
     LiquidGlass.ahk       ← 低階包裝類（對應 dll）
     GlassMenu.ahk         ← 選單元件（介面仿 Menu()）
+    LiquidGlass.dll
   examples/
     demo_panel.ahk
     Quickmenu_glass.ahk   ← 重做的 Quickmenu
-  bin/x64/LiquidGlass.dll
 ```
 
 ## DLL C API
@@ -114,7 +114,7 @@ lg.Hwnd                           ; 給 OnMessage 用
 
 - `light: "auto"`：讀 `HKCU\...\Themes\Personalize\AppsUseLightTheme` 跟隨系統深淺色。
 - `color: "auto"`：淺色玻璃用深色字，深色玻璃用白字。
-- dll 路徑預設找 `A_LineFile\..\..\bin\x64\LiquidGlass.dll`，可用 `LiquidGlass.DllPath` 覆寫。載入失敗時丟出明確錯誤，不要靜默。
+- dll 路徑預設找 `A_LineFile\..\LiquidGlass.dll`，可用 `LiquidGlass.DllPath` 覆寫。載入失敗時丟出明確錯誤，不要靜默。
 - `__Delete` 時呼叫 `LG_Destroy` 並銷毀 Gui。
 
 **GlassMenu（選單元件）**

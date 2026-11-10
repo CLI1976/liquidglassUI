@@ -12,11 +12,11 @@ See [SPEC.md](SPEC.md) (Traditional Chinese) for the full specification.
 ## Quick start
 
 1. Windows 10 2004+ / Windows 11 and the **64-bit** [AutoHotkey v2](https://www.autohotkey.com/) (`AutoHotkey64.exe`).
-2. Download this repo (or the zip from Releases); `bin\x64\LiquidGlass.dll` is prebuilt.
+2. Download this repo (or the zip from Releases); `lib\LiquidGlass.dll` is prebuilt.
 3. Run `examples\simple_menu.ahk` and press **Ctrl + right click** anywhere.
 
 ```ahk
-#Include ahk\GlassMenu.ahk
+#Include <GlassMenu>                                ; from the Lib\ folder next to the script, see below
 
 folders := GlassMenu({accent: 0xF8D86E})            ; submenu with its own glass tint
 folders.Add("Documents", (*) => Run(A_MyDocuments))
@@ -43,19 +43,21 @@ mainMenu.SetIcon("Notepad", A_WinDir "\notepad.exe")
 
 ## Using it in your own scripts
 
-No need to copy anything into the AutoHotkey folder or `Lib`. Keep `ahk\` and `bin\x64\` in the same relative layout:
+Copy the three files in `lib\` into a `Lib\` folder next to your script (AHK's [library folder](https://www.autohotkey.com/docs/v2/Scripts.htm#lib))
+and load them with `#Include <GlassMenu>`:
 
 ```
 YourScriptFolder\
-├─ MyScript.ahk            ← #Include LiquidGlass\ahk\GlassMenu.ahk
-└─ LiquidGlass\
-   ├─ LICENSE
-   ├─ ahk\LiquidGlass.ahk
-   ├─ ahk\GlassMenu.ahk
-   └─ bin\x64\LiquidGlass.dll
+├─ MyScript.ahk            ← #Include <GlassMenu>
+└─ Lib\
+   ├─ LiquidGlass.ahk
+   ├─ GlassMenu.ahk
+   └─ LiquidGlass.dll
 ```
 
-The dll is looked up at `ahk\..\bin\x64\LiquidGlass.dll`; override with `LiquidGlass.DllPath := "..."`.
+To share them between scripts, use `%A_MyDocuments%\AutoHotkey\Lib\` instead. Keep the three files together:
+`GlassMenu.ahk` includes `LiquidGlass.ahk` from its own folder and the dll is looked up next to `LiquidGlass.ahk`
+(override with `LiquidGlass.DllPath := "..."`). Ship `LICENSE` (AGPL-3.0) with them.
 The CRT is linked statically, so no VC++ redistributable is needed.
 
 ## GlassMenu
@@ -80,10 +82,10 @@ On a secondary monitor with a different scale, Windows stretches the window (cor
 
 ## Build
 
-Both compilers produce the same dll (pixel-identical output) at `bin\x64\LiquidGlass.dll`, with a static CRT and
+Both compilers produce the same dll (pixel-identical output) at `lib\LiquidGlass.dll`, with a static CRT and
 only user32, gdi32, gdiplus and dwmapi as dependencies.
 
-**MSVC** (used for `bin\x64`; antivirus heuristics tend to be milder on it). Needs Visual Studio 2019/2022 (Build
+**MSVC** (used for `lib`; antivirus heuristics tend to be milder on it). Needs Visual Studio 2019/2022 (Build
 Tools are enough) with the C++ workload, a Windows 10/11 SDK and the C++ CMake tools:
 
 ```powershell

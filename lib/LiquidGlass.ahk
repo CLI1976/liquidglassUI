@@ -12,7 +12,7 @@
 
 class LiquidGlass {
     ; Override before creating the first panel if the dll lives elsewhere.
-    static DllPath := A_LineFile "\..\..\bin\x64\LiquidGlass.dll"
+    static DllPath := A_LineFile "\..\LiquidGlass.dll"
 
     static _hMod := 0
     static _procs := Map()

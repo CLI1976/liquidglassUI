@@ -1,5 +1,5 @@
 @echo off
-rem Build bin\x64\LiquidGlass.dll with MSVC (Visual Studio 2019/2022 Build Tools with
+rem Build lib\LiquidGlass.dll with MSVC (Visual Studio 2019/2022 Build Tools with
 rem the C++ workload, a Windows 10/11 SDK and the C++ CMake tools).
 setlocal
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -11,7 +11,7 @@ call "%VS%\VC\Auxiliary\Build\vcvars64.bat" >nul
 cd /d "%~dp0"
 cmake -S native -B build\msvc -A x64 || exit /b 1
 cmake --build build\msvc --config Release || exit /b 1
-echo Done: bin\x64\LiquidGlass.dll
+echo Done: lib\LiquidGlass.dll
 exit /b 0
 :novs
 echo Visual Studio Build Tools with C++ not found.
