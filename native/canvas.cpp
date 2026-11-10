@@ -260,6 +260,39 @@ bool CanvasFillRoundRect(Context& c, float x, float y, float w, float h, float r
     return true;
 }
 
+// Rasterizes any SDF shape (window coordinates) with antialiased coverage, source-over.
+bool CanvasFillShape(Context& c, const Shape& shape, DWORD argb) {
+    const size_t count = static_cast<size_t>(c.winW) * c.winH;
+    if (c.content.size() != count) c.content.assign(count, 0);
+    const DWORD a = argb >> 24;
+    if (!a) return true;
+    const DWORD r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
+    ShapeBounds bb = shape.Bounds();
+    int x0 = std::max(0, static_cast<int>(std::floor(bb.x)) - 1);
+    int y0 = std::max(0, static_cast<int>(std::floor(bb.y)) - 1);
+    int x1 = std::min(c.winW, static_cast<int>(std::ceil(bb.x + bb.w)) + 1);
+    int y1 = std::min(c.winH, static_cast<int>(std::ceil(bb.y + bb.h)) + 1);
+    for (int y = y0; y < y1; ++y) {
+        DWORD* row = c.content.data() + static_cast<size_t>(y) * c.winW;
+        for (int x = x0; x < x1; ++x) {
+            float cover = std::clamp(0.5f - shape.Distance(x + 0.5f, y + 0.5f), 0.0f, 1.0f);
+            if (cover <= 0) continue;
+            DWORD sa = static_cast<DWORD>(std::lround(a * cover));
+            if (!sa) continue;
+            // premultiplied source over premultiplied destination
+            DWORD src = (sa << 24) | (((r * sa + 127) / 255) << 16) | (((g * sa + 127) / 255) << 8) | ((b * sa + 127) / 255);
+            DWORD dst = row[x], k = 255 - sa;
+            DWORD out = 0;
+            for (int sh = 0; sh < 32; sh += 8) {
+                DWORD s = (src >> sh) & 0xFF, d = (dst >> sh) & 0xFF;
+                out |= std::min<DWORD>(255, s + (d * k + 127) / 255) << sh;
+            }
+            row[x] = out;
+        }
+    }
+    return true;
+}
+
 bool CanvasLine(Context& c, float x1, float y1, float x2, float y2, float width, DWORD argb) {
     ContentGraphics cg;
     if (!OpenContent(c, cg, L"LG_Line")) return false;

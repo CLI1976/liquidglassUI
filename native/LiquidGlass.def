@@ -6,6 +6,7 @@ EXPORTS
     LG_Scale
     LG_SetScale
     LG_SetShape
+    LG_SetSector
     LG_SetLight
     LG_SetStyle
     LG_SetTint
@@ -20,6 +21,7 @@ EXPORTS
     LG_BaseLuma
     LG_Clear
     LG_FillRoundRect
+    LG_FillSector
     LG_Line
     LG_Text
     LG_Icon

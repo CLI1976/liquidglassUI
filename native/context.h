@@ -53,8 +53,12 @@ struct Context {
     float scale = 1;
 
     // Shape (panel coordinates; radius < 0 = style default).
+    //   round rect: [0] corner radius
+    //   circle:     -
+    //   ring:       [0] inner radius
+    //   sector:     [0] cx [1] cy [2] outer [3] inner [4] start deg [5] sweep deg [6] corner (< 0 = default)
     int shapeKind = kShapeRoundRect;
-    float shapeParam[4] = {-1, 0, 0, 0};
+    float shapeParam[8] = {-1, 0, 0, 0, 0, 0, 0, 0};
     std::unique_ptr<Shape> shape;
 
     Glass glass;
@@ -99,6 +103,7 @@ enum TextFlags {
 // Defined in canvas.cpp (panel-relative coordinates)
 bool CanvasClear(Context& c);
 bool CanvasFillRoundRect(Context& c, float x, float y, float w, float h, float r, DWORD argb);
+bool CanvasFillShape(Context& c, const Shape& shape, DWORD argb);
 bool CanvasLine(Context& c, float x1, float y1, float x2, float y2, float width, DWORD argb);
 bool CanvasText(Context& c, const wchar_t* text, float x, float y, float w, float h, const wchar_t* font,
                 float sizePx, int flags, DWORD argb);

@@ -39,11 +39,12 @@ mainMenu.SetIcon("記事本", A_WinDir "\notepad.exe")
 | `examples/demo_panel.ahk` | 空的玻璃面板，F1–F4 切換深淺色 / 液態 / Acrylic |
 | `examples/demo_content.ahk` | 內容層：文字、.ico / exe / dll 圖示、PNG、hover |
 | `examples/demo_anim.ahk` | 滑入、縮放、淡出動畫與顯示中重截 |
+| `examples/demo_radial.ahk` | 圓形、圓環、扇形選單（F1 / F2 / F3），含子選單 |
 
 ## 放進自己的腳本
 
-把 `lib\` 裡的三個檔案複製到腳本旁邊的 `Lib\` 資料夾（AHK 的[函式庫資料夾](https://www.autohotkey.com/docs/v2/Scripts.htm#lib)），
-就能用 `#Include <GlassMenu>` 載入：
+把 `lib\` 裡的檔案複製到腳本旁邊的 `Lib\` 資料夾（AHK 的[函式庫資料夾](https://www.autohotkey.com/docs/v2/Scripts.htm#lib)），
+就能用 `#Include <GlassMenu>`（或 `<GlassRadial>`）載入：
 
 ```
 你的腳本資料夾\
@@ -51,10 +52,11 @@ mainMenu.SetIcon("記事本", A_WinDir "\notepad.exe")
 └─ Lib\
    ├─ LiquidGlass.ahk
    ├─ GlassMenu.ahk
+   ├─ GlassRadial.ahk       ← 用到圓形 / 扇形選單才需要
    └─ LiquidGlass.dll
 ```
 
-要給所有腳本共用，也可以放進 `%A_MyDocuments%\AutoHotkey\Lib\`。三個檔案要放在同一個資料夾：
+要給所有腳本共用，也可以放進 `%A_MyDocuments%\AutoHotkey\Lib\`。這些檔案要放在同一個資料夾：
 `GlassMenu.ahk` 從自己所在的資料夾載入 `LiquidGlass.ahk`，dll 也是在 `LiquidGlass.ahk` 旁邊找，
 或在建立選單前用 `LiquidGlass.DllPath := "..."` 指定。發布時記得附上 `LICENSE`（AGPL-3.0）。
 dll 靜態連結執行階段，不需要安裝 VC++ 可轉散發套件。
@@ -71,6 +73,28 @@ dll 靜態連結執行階段，不需要安裝 VC++ 可轉散發套件。
 - 彈出動畫（`showMs` 850 ms）不阻塞，播放中就能 hover、點選。
 - 選項：`light`、`style`（liquid / acrylic）、`transparency`、`accent`、`iconSize`、`rowHeight`、`fontSize`、`font`、
   `minWidth`、`maxWidth`、`radius`、`anim`（slide / zoom）、`showMs`、`invokeMs`、`cancelMs`、`subDelay`、`textColor`、`scale`。
+
+## GlassRadial（圓形、圓環、扇形選單）
+
+API 與 `GlassMenu` 相同（`Add`、`SetIcon`、`Delete`、`Disable` / `Enable`、`Show(x?, y?)`、`Close()`），
+`Show` 的座標是圓心（扇形是頂點），預設在滑鼠位置。
+
+```ahk
+#Include <GlassRadial>
+
+r := GlassRadial({shape: "circle", radius: 150, title: "工具"})   ; "circle" | "ring" | "sector"
+r.Add("記事本", (*) => Run("notepad.exe"))
+r.SetIcon("記事本", A_WinDir "\notepad.exe")
+r.Add("子選單", GlassRadial({shape: "ring"}))                     ; 在原位置開啟，點中央返回
+<^RButton:: r.Show()
+```
+
+- 項目順時針排列；圓形、圓環的第一項在 12 點鐘方向，扇形從 `start` 開始排到 `sweep` 結束。
+- 點項目執行；點中央（或 Esc / Backspace）返回上一層或關閉；點外面關閉。鍵盤 ←↑ / →↓ / Tab 移動、Enter 執行。
+- 圓形預設把 hover 項目的名稱顯示在中央（`labels: "center"`），圓環與扇形把名稱畫在圖示下方（`"item"`）。
+- 選項：`shape`、`radius`（外徑 140）、`innerRadius`（項目內緣，圓形 / 圓環 52、扇形 44）、`start` / `sweep`（扇形，-60 / 120）、
+  `corner`、`iconSize`、`fontSize`、`font`、`labels`、`title`、`gap`、`dividers`，以及與 `GlassMenu` 相同的
+  `light`、`style`、`transparency`、`accent`、`textColor`、`anim`（預設 zoom）、`showMs`、`invokeMs`、`cancelMs`、`scale`。
 
 ## LiquidGlass（低階面板）
 
@@ -91,6 +115,8 @@ lg.ShowAsync(x, y, "slide", 850)                   ; 同上，但不阻塞
 lg.Capture(lg.X, lg.Y)                             ; 顯示中重截（WDA_EXCLUDEFROMCAPTURE 排除自己）
 lg.Hide("fade", 800)                               ; 淡出後隱藏；HideAsync 為不阻塞版
 ```
+
+形狀：`lg.SetCircle()`、`lg.SetRing(inner)`、`lg.SetSector(cx, cy, outer, inner, start, sweep, corner?)`（角度 0 = 12 點鐘、順時針）；`lg.FillSector(...)` 在內容層畫同樣形狀的色塊。
 
 `Text` 選項：`font`（預設 Microsoft JhengHei UI）、`size`、`bold`、`align`（left / center / right）、
 `valign`（top / center / bottom）、`ellipsis`（預設 true）、`wrap`（預設 false）、`color`（`"auto"` 依玻璃實際亮度選黑或白）。
@@ -138,14 +164,14 @@ Linux 交叉編譯（需 `g++-mingw-w64-x86-64-posix`），或 Windows 上的 MS
 
 ```
 native/     C++ 原始碼（glass、shape、canvas、api）、.def、版本資源、CMakeLists.txt
-lib/        LiquidGlass.ahk（低階包裝類）、GlassMenu.ahk（玻璃選單）、編譯好的 LiquidGlass.dll
+lib/        LiquidGlass.ahk（低階包裝類）、GlassMenu.ahk（玻璃選單）、GlassRadial.ahk（圓形 / 扇形選單）、編譯好的 LiquidGlass.dll
 examples/   通用範例
 ```
 
 ## 貢獻者
 
 - [CLI1976](https://github.com/CLI1976)：專案作者、需求規格、測試
-- [Claude](https://claude.com/claude-code)（Anthropic）：以 Claude Code 協作實作 native dll、AHK 包裝類與範例
+- [Claude](https://claude.com/claude-code)（Anthropic）：以 Claude Code 協作實作 native dll、AHK 包裝類、圓形 / 扇形選單與範例
 
 ## 來源與授權
 

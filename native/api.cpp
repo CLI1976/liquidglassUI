@@ -76,10 +76,31 @@ float DpiScale(HWND hwnd) {
 
 float DefaultRadius(const Context& c) { return (c.glass.Style() == kGlassWin11 ? 8.0f : 22.0f) * c.scale; }
 
+// Default corner radius of a sector: a little softer than a menu row.
+float DefaultSectorCorner(const Context& c) { return (c.glass.Style() == kGlassWin11 ? 6.0f : 14.0f) * c.scale; }
+
 void RebuildShape(Context& c) {
-    float radius = c.shapeParam[0] < 0 ? DefaultRadius(c) : c.shapeParam[0];
-    c.shape = std::make_unique<RoundRectShape>(static_cast<float>(c.margin), static_cast<float>(c.margin),
-                                               static_cast<float>(c.panelW), static_cast<float>(c.panelH), radius);
+    const float m = static_cast<float>(c.margin);
+    const float* p = c.shapeParam;
+    const float cx = m + c.panelW / 2.0f, cy = m + c.panelH / 2.0f;
+    const float outer = std::min(c.panelW, c.panelH) / 2.0f;
+    switch (c.shapeKind) {
+        case kShapeCircle:
+            c.shape = std::make_unique<RingShape>(cx, cy, outer, 0.0f);
+            break;
+        case kShapeRing:
+            c.shape = std::make_unique<RingShape>(cx, cy, outer, p[0]);
+            break;
+        case kShapeSector:
+            c.shape = std::make_unique<SectorShape>(m + p[0], m + p[1], p[2], p[3], p[4], p[5],
+                                                    p[6] < 0 ? DefaultSectorCorner(c) : p[6]);
+            break;
+        default: {
+            float radius = p[0] < 0 ? DefaultRadius(c) : p[0];
+            c.shape = std::make_unique<RoundRectShape>(m, m, static_cast<float>(c.panelW),
+                                                       static_cast<float>(c.panelH), radius);
+        }
+    }
     c.glass.Invalidate();
     c.baseValid = false;
 }
@@ -376,7 +397,8 @@ int AnimStep(Context& c) {
             g.SetInterpolationMode(Gdiplus::InterpolationModeBilinear);
             g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
             g.SetCompositingMode(Gdiplus::CompositingModeSourceCopy);
-            const float cx = c.margin + c.panelW / 2.0f, cy = c.margin + c.panelH / 2.0f;
+            float cx, cy;
+            c.shape->Origin(cx, cy);  // grows from the shape's center (a sector: its apex)
             std::fill(c.bits, c.bits + count, 0);
             g.DrawImage(&src, Gdiplus::RectF(cx - cx * s, cy - cy * s, c.winW * s, c.winH * s));
             c.alpha = static_cast<BYTE>(std::lround(255 * std::min(1.0, t * 2)));
@@ -578,20 +600,44 @@ int LG_SetScale(void* h, float scale) {
     });
 }
 
-// kind 0 = round rect (p1 = corner radius in px, < 0 = style default). 1 - 3 reserved.
+// kind 0 = round rect (p1 = corner radius in px, < 0 = style default)
+//      1 = circle inscribed in the panel
+//      2 = ring inscribed in the panel (p1 = inner radius in px)
+//      3 = sector: use LG_SetSector
 int LG_SetShape(void* h, int kind, float p1, float p2, float p3, float p4) {
     return Guard(L"LG_SetShape", 0, [&] {
         Context* c = Get(h, L"LG_SetShape");
         if (!c) return 0;
-        if (kind != kShapeRoundRect) {
-            SetError(L"LG_SetShape：形狀 %d 尚未支援（目前只有 0 = 圓角矩形）", kind);
+        if (kind < kShapeRoundRect || kind > kShapeRing) {
+            SetError(L"LG_SetShape：未知的形狀 %d（0 = 圓角矩形，1 = 圓形，2 = 圓環；扇形請用 LG_SetSector）", kind);
             return 0;
         }
         c->shapeKind = kind;
+        std::fill(std::begin(c->shapeParam), std::end(c->shapeParam), 0.0f);
         c->shapeParam[0] = p1;
         c->shapeParam[1] = p2;
         c->shapeParam[2] = p3;
         c->shapeParam[3] = p4;
+        RebuildShape(*c);
+        return 1;
+    });
+}
+
+// Annular sector in panel px: center (cx, cy), radii outer / inner (0 = pie slice),
+// startDeg (0 = 12 o'clock, clockwise) and sweepDeg (360 = full ring), corner radius
+// (< 0 = style default). The sector may extend past the panel's edges into the margin.
+int LG_SetSector(void* h, float cx, float cy, float outer, float inner, float startDeg, float sweepDeg,
+                 float corner) {
+    return Guard(L"LG_SetSector", 0, [&] {
+        Context* c = Get(h, L"LG_SetSector");
+        if (!c) return 0;
+        if (!(outer > 0) || !(inner >= 0) || inner >= outer || !(sweepDeg > 0)) {
+            SetError(L"LG_SetSector：參數不正確（外徑 %g、內徑 %g、角度 %g）", outer, inner, sweepDeg);
+            return 0;
+        }
+        c->shapeKind = kShapeSector;
+        float p[8] = {cx, cy, outer, inner, startDeg, sweepDeg, corner, 0};
+        std::copy(std::begin(p), std::end(p), std::begin(c->shapeParam));
         RebuildShape(*c);
         return 1;
     });
@@ -762,6 +808,21 @@ int LG_FillRoundRect(void* h, int x, int y, int w, int hgt, int r, UINT argb) {
                                         static_cast<float>(hgt), static_cast<float>(r), argb)
                    ? 1
                    : 0;
+    });
+}
+
+// Filled annular sector on the content layer (panel px, same parameters as LG_SetSector;
+// sweep 360 = ring or disc). Antialiased from the same distance field as the glass.
+int LG_FillSector(void* h, float cx, float cy, float outer, float inner, float startDeg, float sweepDeg,
+                  float corner, UINT argb) {
+    return Guard(L"LG_FillSector", 0, [&] {
+        Context* c = Get(h, L"LG_FillSector");
+        if (!c) return 0;
+        if (!(outer > 0) || !(sweepDeg > 0)) return 1;
+        const float m = static_cast<float>(c->margin);
+        SectorShape shape(m + cx, m + cy, outer, std::clamp(inner, 0.0f, outer), startDeg, sweepDeg,
+                          std::max(0.0f, corner));
+        return CanvasFillShape(*c, shape, argb) ? 1 : 0;
     });
 }
 

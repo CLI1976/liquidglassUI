@@ -40,11 +40,12 @@ mainMenu.SetIcon("Notepad", A_WinDir "\notepad.exe")
 | `examples/demo_panel.ahk` | an empty panel; F1–F4 switch dark / light / liquid / acrylic |
 | `examples/demo_content.ahk` | content layer: text, .ico / exe / dll icons, PNG, hover |
 | `examples/demo_anim.ahk` | slide, zoom and fade animations; recapture while shown |
+| `examples/demo_radial.ahk` | circle, ring and sector menus (F1 / F2 / F3) with a submenu |
 
 ## Using it in your own scripts
 
-Copy the three files in `lib\` into a `Lib\` folder next to your script (AHK's [library folder](https://www.autohotkey.com/docs/v2/Scripts.htm#lib))
-and load them with `#Include <GlassMenu>`:
+Copy the files in `lib\` into a `Lib\` folder next to your script (AHK's [library folder](https://www.autohotkey.com/docs/v2/Scripts.htm#lib))
+and load them with `#Include <GlassMenu>` (or `<GlassRadial>`):
 
 ```
 YourScriptFolder\
@@ -52,10 +53,11 @@ YourScriptFolder\
 └─ Lib\
    ├─ LiquidGlass.ahk
    ├─ GlassMenu.ahk
+   ├─ GlassRadial.ahk       ← only for circle / sector menus
    └─ LiquidGlass.dll
 ```
 
-To share them between scripts, use `%A_MyDocuments%\AutoHotkey\Lib\` instead. Keep the three files together:
+To share them between scripts, use `%A_MyDocuments%\AutoHotkey\Lib\` instead. Keep the files together:
 `GlassMenu.ahk` includes `LiquidGlass.ahk` from its own folder and the dll is looked up next to `LiquidGlass.ahk`
 (override with `LiquidGlass.DllPath := "..."`). Ship `LICENSE` (AGPL-3.0) with them.
 The CRT is linked statically, so no VC++ redistributable is needed.
@@ -73,6 +75,27 @@ text after `` `t `` in a name is shown right-aligned as shortcut text.
 - The opening animation (`showMs` 850 ms) is non-blocking: hover and clicks work while it plays.
 - Options: `light`, `style` (liquid / acrylic), `transparency`, `accent`, `iconSize`, `rowHeight`, `fontSize`, `font`,
   `minWidth`, `maxWidth`, `radius`, `anim` (slide / zoom), `showMs`, `invokeMs`, `cancelMs`, `subDelay`, `textColor`, `scale`.
+
+## GlassRadial (circle, ring and sector menus)
+
+Same API as `GlassMenu`; `Show(x?, y?)` takes the center (a sector's apex), the mouse by default.
+
+```ahk
+#Include <GlassRadial>
+r := GlassRadial({shape: "circle", radius: 150, title: "Tools"})   ; "circle" | "ring" | "sector"
+r.Add("Notepad", (*) => Run("notepad.exe"))
+r.Add("More", GlassRadial({shape: "ring"}))                       ; opens in place; its center goes back
+<^RButton:: r.Show()
+```
+
+- Items run clockwise, the first at 12 o'clock (circle / ring) or from `start` over `sweep` (sector).
+- Click an item to run it; the center (or Esc / Backspace) goes back or closes; clicking elsewhere closes.
+  Keys: ←↑ / →↓ / Tab move, Enter runs.
+- Options: `shape`, `radius` (140), `innerRadius` (52 / sector 44), `start` / `sweep` (sector, -60 / 120), `corner`,
+  `iconSize`, `fontSize`, `font`, `labels` ("center" / "item" / "none"), `title`, `gap`, `dividers`, plus `light`, `style`,
+  `transparency`, `accent`, `textColor`, `anim` (zoom), `showMs`, `invokeMs`, `cancelMs`, `scale` as in `GlassMenu`.
+- Low level: `lg.SetCircle()`, `lg.SetRing(inner)`, `lg.SetSector(cx, cy, outer, inner, start, sweep, corner?)`,
+  `lg.FillSector(...)` (degrees, 0 = 12 o'clock, clockwise).
 
 ## DPI
 
@@ -104,7 +127,7 @@ build-msvc.bat       # finds Visual Studio itself; no developer prompt needed
 ## Contributors
 
 - [CLI1976](https://github.com/CLI1976): author, specification, testing
-- [Claude](https://claude.com/claude-code) (Anthropic): co-implemented the native dll, the AHK wrappers and the examples via Claude Code
+- [Claude](https://claude.com/claude-code) (Anthropic): co-implemented the native dll, the AHK wrappers, the radial menus and the examples via Claude Code
 
 ## Origin and license
 

@@ -155,6 +155,26 @@ class LiquidGlass {
             , "Float", r, "Float", 0.0, "Float", 0.0, "Float", 0.0, "Int"), "LG_SetShape")
     }
 
+    ; Circle inscribed in the panel.
+    SetCircle() {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetShape"), "Ptr", this.Ptr, "Int", 1
+            , "Float", 0.0, "Float", 0.0, "Float", 0.0, "Float", 0.0, "Int"), "LG_SetShape")
+    }
+
+    ; Ring inscribed in the panel; inner = radius of the hole (physical px).
+    SetRing(inner) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetShape"), "Ptr", this.Ptr, "Int", 2
+            , "Float", inner + 0.0, "Float", 0.0, "Float", 0.0, "Float", 0.0, "Int"), "LG_SetShape")
+    }
+
+    ; Annular sector around (cx, cy) in panel px. inner 0 = pie slice. Angles in degrees:
+    ; 0 = 12 o'clock, clockwise; sweep 360 = full ring. corner < 0 = style default.
+    SetSector(cx, cy, outer, inner, start, sweep, corner := -1) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_SetSector"), "Ptr", this.Ptr, "Float", cx + 0.0, "Float", cy + 0.0
+            , "Float", outer + 0.0, "Float", inner + 0.0, "Float", start + 0.0, "Float", sweep + 0.0
+            , "Float", corner + 0.0, "Int"), "LG_SetSector")
+    }
+
     ; light: true / false / "auto"
     SetLight(light) {
         this._lightOpt := light
@@ -341,6 +361,13 @@ class LiquidGlass {
     Rect(x, y, w, h, r := 0, argb := 0x33FFFFFF) {
         LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_FillRoundRect"), "Ptr", this.Ptr, "Int", x, "Int", y
             , "Int", w, "Int", h, "Int", r, "UInt", argb, "Int"), "LG_FillRoundRect")
+    }
+
+    ; Filled annular sector (same parameters as SetSector; sweep 360 = ring, inner 0 = disc / pie).
+    FillSector(cx, cy, outer, inner, start, sweep, corner := 0, argb := 0x33FFFFFF) {
+        LiquidGlass._Check(DllCall(LiquidGlass._Proc("LG_FillSector"), "Ptr", this.Ptr, "Float", cx + 0.0, "Float", cy + 0.0
+            , "Float", outer + 0.0, "Float", inner + 0.0, "Float", start + 0.0, "Float", sweep + 0.0
+            , "Float", corner + 0.0, "UInt", argb, "Int"), "LG_FillSector")
     }
 
     ; Separator line. argb "auto" = subtle line matching light / dark glass.

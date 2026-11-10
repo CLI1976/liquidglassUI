@@ -51,6 +51,7 @@ LiquidGlass/
   lib/
     LiquidGlass.ahk       ← 低階包裝類（對應 dll）
     GlassMenu.ahk         ← 選單元件（介面仿 Menu()）
+    GlassRadial.ahk       ← 圓形、圓環、扇形選單（第二階段）
     LiquidGlass.dll
   examples/
     demo_panel.ahk
@@ -66,13 +67,15 @@ LiquidGlass/
 | `LG_Create(hwnd, panelW, panelH, flags) → handle` | 綁定 AHK 視窗，建立玻璃物件。flags：bit0 淺色、bit1 Win11 Acrylic 風格 |
 | `LG_Destroy(h)` | 釋放資源（不動 AHK 的視窗） |
 | `LG_Margin(h) → int` | 陰影邊距，約 40×DPI 倍率，讓 AHK 算視窗實際大小 |
-| `LG_SetShape(h, kind, p1, p2, p3, p4)` | kind 0 = 圓角矩形（p1 = 圓角半徑）；1–3 留給圓、環、扇形 |
+| `LG_SetShape(h, kind, p1, p2, p3, p4)` | kind 0 = 圓角矩形（p1 = 圓角半徑）、1 = 內切圓、2 = 內切圓環（p1 = 內徑） |
+| `LG_SetSector(h, cx, cy, outer, inner, start, sweep, corner)` | 圓角扇環（第二階段）；inner 0 = 扇形，sweep 360 = 圓環；角度 0 = 12 點鐘、順時針 |
 | `LG_SetLight(h, light)` / `LG_SetStyle(h, style)` | 深淺色 / 液態玻璃或 Acrylic |
 | `LG_SetTint(h, custom, rgb)` / `LG_SetTransparency(h, pct)` | 自訂底色 / 透明度 0–100，預設 60 |
 | `LG_Resize(h, panelW, panelH)` | 改變面板大小（材質重算） |
 | `LG_Capture(h, panelX, panelY)` | 在面板將出現的螢幕位置截背景並處理 |
 | `LG_Clear(h)` | 清空內容層 |
 | `LG_FillRoundRect(h, x, y, w, h, r, argb)` | 半透明圓角色塊（hover、選取） |
+| `LG_FillSector(h, cx, cy, outer, inner, start, sweep, corner, argb)` | 扇形色塊（環狀選單 hover），與玻璃共用距離場 |
 | `LG_Line(h, x1, y1, x2, y2, width, argb)` | 分隔線 |
 | `LG_Text(h, text, x, y, w, h, font, sizePx, flags, argb)` | flags：粗體、左中右對齊、垂直置中、過長省略號 |
 | `LG_Icon(h, hIcon, x, y, size)` | 畫 HICON，保留 32-bit alpha |
